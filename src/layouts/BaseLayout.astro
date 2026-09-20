@@ -158,6 +158,20 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
         if (!header || header.dataset.bound) return;
         header.dataset.bound = "true";
 
+        /**
+         * Publish the bar's real height, so anything that pins itself beneath
+         * it can use the measurement rather than a guess. The mobile chip bar
+         * was pinned at a hard-coded 3.5rem against an 84px bar, and spent the
+         * whole page with 28px of itself underneath.
+         */
+        const publishHeight = () =>
+          document.documentElement.style.setProperty(
+            "--head-h",
+            `${header.getBoundingClientRect().height}px`,
+          );
+        new ResizeObserver(publishHeight).observe(header);
+        publishHeight();
+
         let last = window.scrollY;
         let lastHeight = window.innerHeight;
         // Movement so far in the current direction. The bar only reacts to
@@ -251,13 +265,11 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
     backdrop-filter: blur(8px);
   }
 
-  /* Scrolling down takes away the controls and the backing, but never the name:
-     it is the way home from anywhere on the site. */
-  .site-head[data-hidden] {
-    background: transparent;
-    backdrop-filter: none;
-  }
-
+  /* Scrolling down takes away the controls, but never the name: it is the way
+     home from anywhere on the site.
+     The backing stays. Taking it away as well left the name drawn straight
+     over whatever card happened to be passing underneath, with both sets of
+     words legible at once and neither readable. */
   .site-head[data-hidden] .head-tools {
     opacity: 0;
     pointer-events: none;
@@ -434,8 +446,9 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
     }
   }
 
-  /* The sticky header must not cover an anchor target. */
+  /* The sticky header must not cover an anchor target — measured, plus room
+     for the chip bar that pins itself underneath. */
   :global(html) {
-    scroll-padding-top: 5rem;
+    scroll-padding-top: calc(var(--head-h, 5.25rem) + 3.5rem);
   }
 </style>

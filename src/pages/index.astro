@@ -373,7 +373,9 @@ const dateLabel = (value: Date) =>
      under the header so the sections stay reachable while reading. */
   .mobile-nav {
     position: sticky;
-    top: 3.5rem;
+    /* The header's measured height, published by its own script. Hard-coding
+       3.5rem against an 84px bar left 28px of the chips underneath it. */
+    top: var(--head-h, 5.25rem);
     z-index: 20;
     max-width: 62rem;
     margin: 0 auto;

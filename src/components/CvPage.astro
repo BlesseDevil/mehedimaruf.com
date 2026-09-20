@@ -695,7 +695,8 @@ const description = isResume
     .mobile-nav {
       display: block;
       position: sticky;
-      top: 3.5rem;
+      /* The header's measured height, published by its own script. */
+      top: var(--head-h, 5.25rem);
       z-index: 20;
       background: color-mix(in srgb, var(--bg) 88%, transparent);
       backdrop-filter: blur(8px);
