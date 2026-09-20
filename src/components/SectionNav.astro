@@ -182,11 +182,26 @@ const { sections, variant = "column" } = Astro.props;
           }
         }
 
-        // Keep the active chip in view in the scrolling mobile bar.
+        // Keep the active chip in view in the scrolling mobile bar — by
+        // moving the bar itself, never with scrollIntoView.
+        //
+        // scrollIntoView({ block: "nearest" }) does not confine itself to the
+        // horizontal axis: the bar is sticky and sits partly under the header,
+        // so the browser judged it not fully visible and scrolled the PAGE to
+        // fix that. That scroll changed which section was most visible, the
+        // observer fired again, and it scrolled again — a feedback loop whose
+        // constant direction changes made the header hide and reveal over and
+        // over. Only the mobile bar exists to be scrolled into view, which is
+        // why it never showed up on a desktop.
         const activeChip = document.querySelector<HTMLElement>(
           '.bar a[aria-current="true"]',
         );
-        activeChip?.scrollIntoView({ block: "nearest", inline: "center" });
+        const track = activeChip?.closest<HTMLElement>(".bar ul");
+        if (activeChip && track) {
+          const left =
+            activeChip.offsetLeft - (track.clientWidth - activeChip.offsetWidth) / 2;
+          track.scrollTo({ left, behavior: "smooth" });
+        }
       },
       { threshold: [0, 0.15, 0.4, 0.7, 1], rootMargin: "-10% 0px -40% 0px" },
     );

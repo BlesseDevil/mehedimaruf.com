@@ -159,23 +159,46 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
         header.dataset.bound = "true";
 
         let last = window.scrollY;
+        let lastHeight = window.innerHeight;
+        // Movement so far in the current direction. The bar only reacts to
+        // sustained travel, so a wobble cannot flip it.
+        let travel = 0;
         let queued = false;
+
+        // How far you have to keep going before the bar agrees you meant it.
+        const COMMIT = 28;
 
         const apply = () => {
           queued = false;
           const y = window.scrollY;
           const delta = y - last;
+          last = y;
 
           if (y > 24) header.dataset.scrolled = "";
           else delete header.dataset.scrolled;
 
-          // Ignore anything under 6px: that is noise, not intent.
-          if (Math.abs(delta) > 6) {
-            const held = header.dataset.hold !== undefined;
-            if (delta > 0 && y > 140 && !held) header.dataset.hidden = "";
-            else delete header.dataset.hidden;
-            last = y;
+          // A phone's address bar collapsing changes the viewport height, and
+          // the page appears to scroll without anyone scrolling it. That is a
+          // resize, not intent, so it moves nothing.
+          if (window.innerHeight !== lastHeight) {
+            lastHeight = window.innerHeight;
+            travel = 0;
+            return;
           }
+
+          // Ignore anything under 2px, and start the count over whenever the
+          // direction changes — momentum and rubber-banding produce plenty of
+          // both.
+          if (Math.abs(delta) < 2) return;
+          if ((delta > 0) !== (travel > 0)) travel = 0;
+          travel += delta;
+
+          if (Math.abs(travel) < COMMIT) return;
+
+          const held = header.dataset.hold !== undefined;
+          if (travel > 0 && y > 140 && !held) header.dataset.hidden = "";
+          else delete header.dataset.hidden;
+          travel = 0;
         };
 
         window.addEventListener(
