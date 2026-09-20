@@ -1,0 +1,29 @@
+# dependencies & build output
+node_modules/
+dist/
+.astro/
+
+# private working material — brand source files, CV master, personal notes.
+# NEVER commit: the CV master holds phone, DOB, address and referee contacts.
+.blessedevil/
+
+# session context files, local only
+.claude/precompact/
+
+# local-only tooling (font lab and friends) — dev routes, never shipped
+.local-tool/
+
+# environment & secrets
+.env
+.env.*
+.dev.vars
+.wrangler/
+
+# editor / OS noise
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# vs
+.vs/

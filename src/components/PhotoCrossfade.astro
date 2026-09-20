@@ -1,0 +1,248 @@
+---
+import { Image } from "astro:assets";
+import emblem from "../assets/brand/emblem.png";
+
+/**
+ * The hero portrait: photos crossfade inside an arched frame.
+ *
+ * Drop images into src/assets/portraits/ and they join the rotation, ordered by
+ * filename — no code change, no list to update. With none there, the frame
+ * shows the emblem instead, so the layout is never a broken-image box.
+ *
+ * Pauses on hover and on keyboard focus. With reduced motion it simply shows
+ * the first photo and never cycles.
+ */
+
+const modules = import.meta.glob<{ default: ImageMetadata }>(
+  "../assets/portraits/*.{jpg,jpeg,png,webp,avif}",
+  { eager: true },
+);
+
+const photos = Object.entries(modules)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([path, module]) => ({ path, image: module.default }));
+
+const hasPhotos = photos.length > 0;
+---
+
+<figure
+  class="portrait"
+  data-crossfade={photos.length > 1 ? "" : undefined}
+  tabindex={photos.length > 1 ? 0 : undefined}
+>
+  {
+    hasPhotos ? (
+      photos.map((photo, index) => (
+        <Image
+          src={photo.image}
+          alt={index === 0 ? "Mehedi Hasan Maruf" : ""}
+          widths={[320, 480, 640]}
+          sizes="(max-width: 60rem) 60vw, 22rem"
+          loading={index === 0 ? "eager" : "lazy"}
+          data-slide={index}
+          data-current={index === 0 ? "" : undefined}
+        />
+      ))
+    ) : (
+      <div class="placeholder">
+        <Image src={emblem} alt="" width={160} height={157} loading="eager" />
+        <figcaption>
+          Drop photos into <code>src/assets/portraits/</code>
+        </figcaption>
+      </div>
+    )
+  }
+</figure>
+
+<style>
+  .portrait {
+    position: relative;
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: transform 400ms var(--ease);
+    will-change: transform;
+    margin: 0;
+    width: min(22rem, 70vw);
+    aspect-ratio: 4 / 5;
+    border-radius: 999px 999px 0.75rem 0.75rem;
+    overflow: hidden;
+    background: var(--bg-alt);
+    box-shadow: var(--shadow);
+    /* the thin brand ring */
+    outline: 1px solid var(--border-strong);
+    outline-offset: 0.5rem;
+  }
+
+  .portrait::after {
+    /* a warm wash so a cool photo still sits inside the palette */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 55%, var(--accent-soft));
+    pointer-events: none;
+  }
+
+  .portrait :global(img) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1200ms var(--ease);
+  }
+
+  /* Ken Burns: the showing photo drifts and grows a little, so a still image
+     still feels alive. It runs only on the visible one, and only for as long as
+     that one is up. */
+  .portrait :global(img[data-current]) {
+    opacity: 1;
+    animation: photo-drift 6s ease-out forwards;
+  }
+
+  @keyframes photo-drift {
+    from {
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+    to {
+      transform: scale(1.07) translate3d(-1.2%, -1.6%, 0);
+    }
+  }
+
+  .placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .placeholder :global(img) {
+    position: static;
+    width: 9rem;
+    height: auto;
+    opacity: 0.85;
+  }
+
+  figcaption {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 60rem) {
+    .portrait {
+      width: min(16rem, 60vw);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce), (pointer: coarse) {
+    .portrait {
+      transform: none;
+    }
+
+    .portrait :global(img[data-current]) {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  function initCrossfade() {
+    for (const frame of document.querySelectorAll<HTMLElement>("[data-crossfade]")) {
+      if (frame.dataset.bound) continue;
+      frame.dataset.bound = "true";
+
+      const slides = [...frame.querySelectorAll<HTMLImageElement>("[data-slide]")];
+      if (slides.length < 2) continue;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) continue;
+
+      let index = 0;
+      let timer: number | undefined;
+
+      const advance = () => {
+        delete slides[index]!.dataset.current;
+        index = (index + 1) % slides.length;
+        slides[index]!.dataset.current = "";
+      };
+
+      const start = () => {
+        stop();
+        timer = window.setInterval(advance, 5000);
+      };
+      const stop = () => {
+        if (timer !== undefined) window.clearInterval(timer);
+        timer = undefined;
+      };
+
+      frame.addEventListener("pointerenter", stop);
+      frame.addEventListener("pointerleave", start);
+      frame.addEventListener("focusin", stop);
+      frame.addEventListener("focusout", start);
+      // Do not animate a tab nobody is looking at.
+      document.addEventListener("visibilitychange", () =>
+        document.hidden ? stop() : start(),
+      );
+
+      start();
+    }
+  }
+
+  /**
+   * Tilt the frame a few degrees towards the cursor. The rotation is capped at
+   * 6 degrees: past that it stops reading as a lean and starts looking broken.
+   */
+  function initTilt() {
+    const frame = document.querySelector<HTMLElement>(".portrait");
+    if (!frame || frame.dataset.tilt) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    frame.dataset.tilt = "true";
+
+    const MAX = 6;
+    let queued = false;
+    let lastEvent: PointerEvent | null = null;
+
+    const paint = () => {
+      queued = false;
+      if (!lastEvent) return;
+      const box = frame.getBoundingClientRect();
+      // −1 to 1, measured from the middle of the frame.
+      const x = (lastEvent.clientX - (box.left + box.width / 2)) / (box.width / 2);
+      const y = (lastEvent.clientY - (box.top + box.height / 2)) / (box.height / 2);
+      const clamp = (v: number) => Math.max(-1.6, Math.min(1.6, v));
+      frame.style.setProperty("--tilt-y", `${clamp(x) * MAX}deg`);
+      frame.style.setProperty("--tilt-x", `${clamp(-y) * MAX}deg`);
+    };
+
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        lastEvent = event;
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      },
+      { passive: true },
+    );
+
+    // Settle back to flat when the pointer leaves the window.
+    document.addEventListener("pointerleave", () => {
+      frame.style.setProperty("--tilt-x", "0deg");
+      frame.style.setProperty("--tilt-y", "0deg");
+    });
+  }
+
+  initCrossfade();
+  initTilt();
+  document.addEventListener("astro:page-load", () => {
+    initCrossfade();
+    initTilt();
+  });
+</script>

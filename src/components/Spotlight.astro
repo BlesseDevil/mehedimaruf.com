@@ -1,0 +1,74 @@
+---
+/**
+ * A soft pool of light that follows the cursor, sitting behind the content.
+ *
+ * Pointer devices only — there is no cursor to follow on a touchscreen, and the
+ * layer would just sit in one corner. It is painted on its own compositor layer
+ * and updated inside requestAnimationFrame, so it never blocks scrolling.
+ */
+---
+
+<div class="spotlight" data-spotlight aria-hidden="true"></div>
+
+<style>
+  .spotlight {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 400ms var(--ease);
+    background: radial-gradient(
+      var(--spotlight-size) circle at var(--x, 50%) var(--y, 0%),
+      var(--spotlight),
+      transparent 72%
+    );
+  }
+
+  /* Only show it once we have a real pointer position. */
+  .spotlight[data-lit] {
+    opacity: 1;
+  }
+
+  @media (pointer: coarse) {
+    .spotlight {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  function initSpotlight() {
+    const layer = document.querySelector<HTMLElement>("[data-spotlight]");
+    if (!layer || !window.matchMedia("(pointer: fine)").matches) return;
+
+    let x = 0;
+    let y = 0;
+    let queued = false;
+
+    const paint = () => {
+      queued = false;
+      layer.style.setProperty("--x", `${x}px`);
+      layer.style.setProperty("--y", `${y}px`);
+    };
+
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        x = event.clientX;
+        y = event.clientY;
+        layer.dataset.lit = "";
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      },
+      { passive: true },
+    );
+
+    // The pool belongs to the window, not the page: hide it when the pointer leaves.
+    document.addEventListener("pointerleave", () => delete layer.dataset.lit);
+  }
+
+  initSpotlight();
+  document.addEventListener("astro:page-load", initSpotlight);
+</script>

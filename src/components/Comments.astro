@@ -1,0 +1,59 @@
+---
+import { GISCUS } from "../config";
+
+/**
+ * giscus comments, stored in this repo's GitHub Discussions.
+ *
+ * Renders nothing at all until the repo IDs are filled in (see src/config.ts),
+ * so the site stays valid before the GitHub repo exists. No IDs, no script, no
+ * empty box asking people to comment into the void.
+ */
+const configured = GISCUS.repo && GISCUS.repoId && GISCUS.categoryId;
+---
+
+{
+  configured && (
+    <section class="comments" aria-labelledby="comments-h">
+      <h2 id="comments-h">Comments</h2>
+      <p class="note">Sign in with GitHub to reply. No ads, no tracking.</p>
+      <script
+        src="https://giscus.app/client.js"
+        data-repo={GISCUS.repo}
+        data-repo-id={GISCUS.repoId}
+        data-category={GISCUS.category}
+        data-category-id={GISCUS.categoryId}
+        data-mapping="pathname"
+        data-strict="1"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="preferred_color_scheme"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async
+      />
+    </section>
+  )
+}
+
+<style>
+  .comments {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  h2 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .note {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

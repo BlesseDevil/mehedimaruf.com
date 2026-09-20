@@ -1,0 +1,171 @@
+---
+/**
+ * Blessed ↔ Devil theme toggle.
+ *
+ * The icon shows the theme you are in: a halo in Blessed, horns in Devil.
+ * Both live in one SVG and swap by CSS, so the flip animates rather than
+ * replacing the graphic.
+ */
+---
+
+<button
+  type="button"
+  class="theme-toggle"
+  data-theme-toggle
+  aria-live="polite"
+  title="Switch theme"
+>
+  <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <!-- halo: sits above the head in Blessed, lifts away in Devil -->
+    <ellipse class="halo" cx="24" cy="13" rx="10" ry="3.4" />
+    <!-- horns: curl out of the head in Devil -->
+    <path class="horn horn-l" d="M14 17 C12 9, 15 7, 17.5 12.5" />
+    <path class="horn horn-r" d="M34 17 C36 9, 33 7, 30.5 12.5" />
+    <circle class="head" cx="24" cy="30" r="10.5" />
+  </svg>
+  <span class="sr-only" data-theme-label>Theme</span>
+</button>
+
+<style>
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+
+  .theme-toggle:hover {
+    background: var(--accent-soft);
+    border-color: var(--border-strong);
+  }
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+
+  .head {
+    stroke: var(--crimson);
+  }
+
+  .halo {
+    stroke: var(--gold);
+    transform-origin: 24px 13px;
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  .horn {
+    stroke: var(--gold);
+    transform-origin: 24px 17px;
+    opacity: 0;
+    transform: scaleY(0.2);
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  /* Devil: the halo lifts off, the horns sprout. */
+  :global([data-theme="devil"]) .halo {
+    opacity: 0;
+    transform: translateY(-6px) scaleX(0.6);
+  }
+
+  :global([data-theme="devil"]) .horn {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  :global([data-theme="devil"]) .head {
+    stroke: var(--crimson-bright);
+  }
+
+  /* Same swap when the OS picks dark and the visitor has not chosen. */
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="blessed"])) .halo {
+      opacity: 0;
+      transform: translateY(-6px) scaleX(0.6);
+    }
+
+    :global(:root:not([data-theme="blessed"])) .horn {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  const STORAGE_KEY = "mm-theme";
+
+  function current(): "blessed" | "devil" {
+    const set = document.documentElement.dataset.theme;
+    if (set === "blessed" || set === "devil") return set;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "devil" : "blessed";
+  }
+
+  /**
+   * `persist` is false on page load: writing there would pin the visitor to
+   * whatever the OS happened to say the first time, and stop the site from
+   * following later OS changes. Only a click is a choice.
+   */
+  function apply(theme: "blessed" | "devil", persist: boolean) {
+    if (persist) {
+      document.documentElement.dataset.theme = theme;
+      try {
+        localStorage.setItem(STORAGE_KEY, theme);
+      } catch {
+        /* private mode, blocked storage — the theme still applies for this visit */
+      }
+    }
+    for (const label of document.querySelectorAll<HTMLElement>("[data-theme-label]")) {
+      label.textContent = theme === "devil" ? "Theme: Devil" : "Theme: Blessed";
+    }
+    for (const button of document.querySelectorAll<HTMLElement>("[data-theme-toggle]")) {
+      button.setAttribute(
+        "aria-label",
+        theme === "devil" ? "Theme: Devil. Switch to Blessed." : "Theme: Blessed. Switch to Devil.",
+      );
+    }
+  }
+
+  function init() {
+    apply(current(), false);
+    for (const button of document.querySelectorAll<HTMLElement>("[data-theme-toggle]")) {
+      if (button.dataset.bound) continue;
+      button.dataset.bound = "true";
+      button.addEventListener("click", () => {
+        apply(current() === "devil" ? "blessed" : "devil", true);
+      });
+    }
+  }
+
+  init();
+  document.addEventListener("astro:page-load", init);
+
+  // Follow the OS while the visitor has made no explicit choice.
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    let chosen: string | null = null;
+    try {
+      chosen = localStorage.getItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!chosen) apply(current(), false);
+  });
+</script>

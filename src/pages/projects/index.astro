@@ -1,0 +1,252 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Spotlight from "../../components/Spotlight.astro";
+import CursorRing from "../../components/CursorRing.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
+import { getProjects, TYPE_LABELS, BAND_LABELS } from "../../lib/content";
+import { EMAILS, PSEUDONYM } from "../../config";
+
+const projects = await getProjects();
+
+const bands = (["software", "irl"] as const)
+  .map((band) => ({
+    band,
+    label: BAND_LABELS[band],
+    items: projects.filter((p) => p.data.band === band),
+  }))
+  .filter((group) => group.items.length > 0);
+
+/** Only offer filters that would actually match something. */
+const types = [...new Set(projects.map((p) => p.data.type))].map((type) => ({
+  type,
+  label: TYPE_LABELS[type],
+  count: projects.filter((p) => p.data.type === type).length,
+}));
+---
+
+<BaseLayout
+  title="Projects"
+  description="Software and real-world projects by Mehedi Hasan Maruf, built under the name BlesseDevil."
+>
+  <Spotlight />
+  <CursorRing />
+
+  <div class="page">
+    <header class="head">
+      <p class="eyebrow">Projects</p>
+      <h1>Things I have built and run</h1>
+      <p class="lede">
+        Software I write under the name <a href={PSEUDONYM.github} target="_blank" rel="noopener"
+          >{PSEUDONYM.name}</a
+        >, and delivery work from the other half of my life. Questions about any of it:
+        <a href={`mailto:${EMAILS.dev}`}>{EMAILS.dev}</a>.
+      </p>
+
+      {
+        types.length > 1 && (
+          <div class="filters" data-filters role="group" aria-label="Filter by kind">
+            <button type="button" data-filter="all" aria-pressed="true">
+              All <span class="count">{projects.length}</span>
+            </button>
+            {types.map((type) => (
+              <button type="button" data-filter={type.type} aria-pressed="false">
+                {type.label} <span class="count">{type.count}</span>
+              </button>
+            ))}
+          </div>
+        )
+      }
+    </header>
+
+    {
+      bands.map((group) => (
+        <section class="band" id={group.band} data-band={group.band}>
+          <h2>{group.label}</h2>
+          <ul class="grid">
+            {group.items.map((project) => (
+              <li data-type={project.data.type}>
+                <ProjectCard project={project} />
+              </li>
+            ))}
+          </ul>
+          <p class="empty" hidden>
+            Nothing of that kind here.
+          </p>
+        </section>
+      ))
+    }
+
+    {
+      projects.length === 0 && (
+        <p class="empty-all">
+          Nothing published here yet.
+          {import.meta.env.DEV && (
+            <span class="dev-note"> Add one in <code>src/content/projects/</code>.</span>
+          )}
+        </p>
+      )
+    }
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .lede {
+    max-width: var(--measure);
+    color: var(--muted);
+    margin: 1rem 0 0;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 2rem;
+  }
+
+  .filters button {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+
+  .filters button:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .filters button[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    opacity: 0.7;
+  }
+
+  /* A fingertip needs about 44px; a mouse pointer does not. */
+  @media (pointer: coarse) {
+    .filters button {
+      padding: 0.6rem 1rem;
+    }
+  }
+
+  .dev-note {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  .band {
+    margin-top: 3.5rem;
+    scroll-margin-top: 4rem;
+  }
+
+  h2 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.75rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1.25rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .grid li[hidden] {
+    display: none;
+  }
+
+  .empty,
+  .empty-all {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+</style>
+
+<script>
+  /**
+   * Filtering is a class toggle over cards that are already on the page: no
+   * fetch, no re-render, and it still works if the JavaScript never arrives —
+   * you simply see everything, which is the honest default.
+   */
+  function initFilters() {
+    const bar = document.querySelector<HTMLElement>("[data-filters]");
+    if (!bar || bar.dataset.bound) return;
+    bar.dataset.bound = "true";
+
+    // Direct children only: `.grid li` would also match the stack chips inside
+    // each card, and filtering would then hide the tech labels.
+    const cards = [...document.querySelectorAll<HTMLElement>(".grid > li")];
+    const bands = [...document.querySelectorAll<HTMLElement>(".band")];
+
+    bar.addEventListener("click", (event) => {
+      const button = (event.target as Element).closest<HTMLButtonElement>("[data-filter]");
+      if (!button) return;
+
+      const wanted = button.dataset.filter!;
+      for (const other of bar.querySelectorAll("[data-filter]")) {
+        other.setAttribute("aria-pressed", String(other === button));
+      }
+
+      for (const card of cards) {
+        card.hidden = wanted !== "all" && card.dataset.type !== wanted;
+      }
+
+      // A band with nothing left says so rather than leaving a bare heading.
+      for (const band of bands) {
+        const visible = [...band.querySelectorAll<HTMLElement>(".grid > li")].some((li) => !li.hidden);
+        const note = band.querySelector<HTMLElement>(".empty");
+        if (note) note.hidden = visible;
+        band.querySelector<HTMLElement>(".grid")!.hidden = !visible;
+      }
+    });
+  }
+
+  initFilters();
+  document.addEventListener("astro:page-load", initFilters);
+</script>

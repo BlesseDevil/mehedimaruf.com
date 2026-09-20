@@ -1,0 +1,80 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Spotlight from "../components/Spotlight.astro";
+import CursorRing from "../components/CursorRing.astro";
+---
+
+<BaseLayout title="Not found" description="That page does not exist.">
+  <Spotlight />
+  <CursorRing />
+
+  <section class="page">
+    <p class="code">404</p>
+    <h1>That page does not exist</h1>
+    <p class="lede">
+      A wrong link, a typo, or something that used to be here and is not any more.
+      The emblem in the corner opens the way to everything else — or start from one of these.
+    </p>
+
+    <ul class="links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/resume">Résumé</a></li>
+      <li><a href="/projects">Projects</a></li>
+      <li><a href="/blog">Writing</a></li>
+    </ul>
+
+    <p class="hint">Press <kbd>Ctrl</kbd> <kbd>K</kbd> to search the site.</p>
+  </section>
+</BaseLayout>
+
+<style>
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: clamp(3rem, 12vh, 7rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  .code {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .lede {
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    list-style: none;
+    margin: 2rem 0 0;
+    padding: 0;
+  }
+
+  .hint {
+    margin-top: 2.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.25rem;
+  }
+</style>

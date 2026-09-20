@@ -1,0 +1,210 @@
+---
+import { render, type CollectionEntry } from "astro:content";
+import { Image } from "astro:assets";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Spotlight from "../../components/Spotlight.astro";
+import CursorRing from "../../components/CursorRing.astro";
+import Comments from "../../components/Comments.astro";
+import { getPosts, isLocalPost, formatDate, readingTime, tagSlug } from "../../lib/content";
+
+/**
+ * Only posts that live here get a page. An `external` post is a link to someone
+ * else's site, so building a page for it would be a copy of their article.
+ */
+export async function getStaticPaths() {
+  const posts = (await getPosts()).filter(isLocalPost);
+  return posts.map((post, index) => ({
+    params: { slug: post.id },
+    props: {
+      post,
+      newer: posts[index - 1] ?? null,
+      older: posts[index + 1] ?? null,
+    },
+  }));
+}
+
+interface Props {
+  post: CollectionEntry<"blog">;
+  newer: CollectionEntry<"blog"> | null;
+  older: CollectionEntry<"blog"> | null;
+}
+
+const { post, newer, older } = Astro.props;
+const { data } = post;
+const { Content } = await render(post);
+---
+
+<BaseLayout title={data.title} description={data.description} lang={data.lang}>
+  <Spotlight />
+  <CursorRing />
+
+  <article class="page" data-pagefind-body>
+    <p class="crumbs"><a href="/blog">Writing</a></p>
+
+    <header>
+      <h1>{data.title}</h1>
+      <p class="meta">
+        <time datetime={data.date.toISOString()}>{formatDate(data.date)}</time>
+        <span>{readingTime(post.body)} min read</span>
+        {
+          data.updated && (
+            <span>Updated {formatDate(data.updated)}</span>
+          )
+        }
+        {data.draft && <span class="draft">Draft</span>}
+      </p>
+      {
+        data.tags.length > 0 && (
+          <ul class="tags">
+            {data.tags.map((tag) => (
+              <li>
+                <a href={`/blog/tags/${tagSlug(tag)}`}>{tag}</a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    {
+      data.cover && (
+        <Image class="cover" src={data.cover} alt="" widths={[640, 960, 1280]} sizes="(max-width: 48rem) 92vw, 44rem" />
+      )
+    }
+
+    {/* lang on the body, so Bangla gets its own font and correct hyphenation */}
+    <div class="prose body" lang={data.lang}>
+      <Content />
+    </div>
+
+    <nav class="pager" aria-label="More posts">
+      {
+        newer ? (
+          <a href={`/blog/${newer.id}`} class="prev">
+            <span>Newer</span>
+            {newer.data.title}
+          </a>
+        ) : (
+          <span />
+        )
+      }
+      {
+        older && (
+          <a href={`/blog/${older.id}`} class="next">
+            <span>Older</span>
+            {older.data.title}
+          </a>
+        )
+      }
+    </nav>
+
+    <Comments />
+  </article>
+</BaseLayout>
+
+<style>
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  .crumbs {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0 0 2rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin: 0.9rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .draft {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0 0.5rem;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+  }
+
+  .tags a {
+    font-size: 0.78rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    border-radius: 0.6rem;
+    margin: 2.5rem 0;
+  }
+
+  .body {
+    margin-top: 2.5rem;
+    font-size: 1.05rem;
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 1rem;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .pager a {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: inherit;
+    font-size: 0.95rem;
+  }
+
+  .pager a:hover {
+    border-color: var(--accent);
+  }
+
+  .pager span {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .next {
+    text-align: right;
+  }
+</style>

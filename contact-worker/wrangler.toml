@@ -1,0 +1,17 @@
+name = "mehedimaruf-contact"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Plain settings. Anything secret goes through `wrangler secret put` instead —
+# see README.md. Nothing in this file is confidential.
+[vars]
+TO_ADDRESS = "contact@mehedimaruf.com"
+FROM_ADDRESS = "contact@mehedimaruf.com"
+ALLOWED_ORIGINS = "https://mehedimaruf.com,https://www.mehedimaruf.com,http://localhost:4321"
+
+# A route on the domain, so the form posts to contact.mehedimaruf.com rather
+# than a workers.dev address. Add the DNS record first (see README), then
+# uncomment.
+# [[routes]]
+# pattern = "contact.mehedimaruf.com/*"
+# zone_name = "mehedimaruf.com"

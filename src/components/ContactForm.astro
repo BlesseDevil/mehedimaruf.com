@@ -1,0 +1,221 @@
+---
+import { CONTACT, EMAILS } from "../config";
+
+/**
+ * The contact form.
+ *
+ * It only appears once an endpoint is configured — with none, the contact
+ * section shows the email address on its own, which is a perfectly good way to
+ * be contacted and one less thing to break.
+ *
+ * Without JavaScript the form still submits: it posts directly to the Worker,
+ * which answers with a plain thank-you page. With JavaScript it posts in the
+ * background and the visitor stays where they are.
+ *
+ * Spam defence is two-layered: a honeypot field that humans never see, and
+ * Cloudflare Turnstile when a site key is set.
+ */
+const enabled = Boolean(CONTACT.endpoint);
+const hasTurnstile = Boolean(CONTACT.turnstileSiteKey);
+---
+
+{
+  enabled ? (
+    <form class="contact-form" method="post" action={CONTACT.endpoint} data-contact-form>
+      <div class="row">
+        <label>
+          <span>Your name</span>
+          <input type="text" name="name" required autocomplete="name" maxlength="120" />
+        </label>
+        <label>
+          <span>Your email</span>
+          <input type="email" name="email" required autocomplete="email" maxlength="200" />
+        </label>
+      </div>
+
+      <label>
+        <span>Message</span>
+        <textarea name="message" rows="5" required maxlength="4000" />
+      </label>
+
+      {/* Honeypot: off-screen, not hidden, so bots that read CSS still fill it. */}
+      <div class="trap" aria-hidden="true">
+        <label>
+          Leave this field empty
+          <input type="text" name="company" tabindex="-1" autocomplete="off" />
+        </label>
+      </div>
+
+      {hasTurnstile && <div class="cf-turnstile" data-sitekey={CONTACT.turnstileSiteKey} />}
+
+      <div class="actions">
+        <button type="submit">Send message</button>
+        <p class="status" data-contact-status role="status" aria-live="polite" />
+      </div>
+
+      <p class="alt">
+        Or write to <a href={`mailto:${EMAILS.contact}`}>{EMAILS.contact}</a> directly.
+      </p>
+    </form>
+  ) : (
+    <p class="mail-only">
+      <a href={`mailto:${EMAILS.contact}`}>{EMAILS.contact}</a>
+    </p>
+  )
+}
+
+{hasTurnstile && <script is:inline async src="https://challenges.cloudflare.com/turnstile/v0/api.js" />}
+
+<style>
+  .contact-form {
+    display: grid;
+    gap: 1rem;
+    max-width: 38rem;
+    margin-top: 1.5rem;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem;
+  }
+
+  label {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--control-edge);
+    border-radius: 0.45rem;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.95rem;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  /* Off-screen rather than display:none — a bot reading the stylesheet skips
+     hidden fields, but fills one that is merely out of view. */
+  .trap {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  button {
+    padding: 0.7rem 1.4rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.45rem;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: var(--accent-hover);
+  }
+
+  button[disabled] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .status {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .status[data-state="error"] {
+    color: var(--crimson-bright);
+  }
+
+  .status[data-state="sent"] {
+    color: var(--accent);
+  }
+
+  .alt,
+  .mail-only {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .mail-only {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    margin-top: 1.25rem;
+  }
+</style>
+
+<script>
+  function initContactForm() {
+    for (const element of document.querySelectorAll<HTMLFormElement>("[data-contact-form]")) {
+      if (element.dataset.bound) continue;
+      element.dataset.bound = "true";
+
+      const status = element.querySelector<HTMLElement>("[data-contact-status]")!;
+      const button = element.querySelector<HTMLButtonElement>("button[type=submit]")!;
+
+      element.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        status.dataset.state = "";
+        status.textContent = "Sending…";
+        button.disabled = true;
+
+        try {
+          const response = await fetch(element.action, {
+            method: "POST",
+            headers: { Accept: "application/json" },
+            body: new FormData(element),
+          });
+
+          if (!response.ok) {
+            // The Worker explains itself in JSON; fall back to a plain message.
+            const detail = await response.json().catch(() => ({}));
+            throw new Error(detail.error ?? `Something went wrong (${response.status}).`);
+          }
+
+          element.reset();
+          status.dataset.state = "sent";
+          status.textContent = "Sent. I'll reply as soon as I can.";
+        } catch (error) {
+          status.dataset.state = "error";
+          status.textContent =
+            error instanceof Error ? error.message : "Could not send. Please email instead.";
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+  }
+
+  initContactForm();
+  document.addEventListener("astro:page-load", initContactForm);
+</script>

@@ -1,0 +1,49 @@
+---
+import SectionNav from "./SectionNav.astro";
+
+/**
+ * The section names down the left gutter.
+ *
+ * Only for pages built out of named sections — the socials that used to travel
+ * with it now live in BaseLayout, because they belong on every page and this
+ * does not.
+ *
+ * It lives in the page gutter, so it waits until the gutter is wider than it
+ * is; below that the mobile chip bar and the footer links carry the same
+ * routes.
+ */
+interface Props {
+  sections: { id: string; label: string }[];
+}
+
+const { sections } = Astro.props;
+---
+
+<div class="left-rail">
+  <SectionNav sections={sections} variant="rail" />
+</div>
+
+<style>
+  .left-rail {
+    position: fixed;
+    left: clamp(1rem, 3vw, 2.5rem);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    display: grid;
+    justify-items: start;
+    gap: 1rem;
+  }
+
+  @media (max-width: 80rem) {
+    .left-rail {
+      display: none;
+    }
+  }
+
+  @media print {
+    .left-rail {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,199 @@
+---
+/**
+ * The line-and-label section navigator.
+ *
+ * Three placements, one mechanic:
+ *   rail   — fixed to the left edge, for the home page on a wide screen
+ *   column — inside the CV's sticky left column
+ *   bar    — a scrollable row of chips, pinned under the header on a phone
+ *
+ * A page may render more than one of these (a rail for desktop, a bar for
+ * mobile), and every instance stays in step: the observer updates all of them.
+ */
+interface Props {
+  sections: { id: string; label: string }[];
+  variant?: "column" | "rail" | "bar";
+}
+
+const { sections, variant = "column" } = Astro.props;
+---
+
+<nav class:list={["section-nav", variant]} aria-label="Sections" data-section-nav>
+  <ul>
+    {
+      sections.map((section) => (
+        <li>
+          <a href={`#${section.id}`} data-nav-link={section.id}>
+            <span class="line" aria-hidden="true" />
+            <span class="label">{section.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .section-nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    /* Tight enough that ten sections plus the actions fit a laptop screen
+       without the list needing to scroll inside the column. */
+    padding: 0.22rem 0;
+    text-decoration: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .line {
+    display: block;
+    height: 1px;
+    width: 1.75rem;
+    background: currentColor;
+    transition: width var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+
+  a:hover,
+  a:focus-visible {
+    color: var(--text);
+  }
+
+  a:hover .line,
+  a:focus-visible .line {
+    width: 2.75rem;
+  }
+
+  /* Set by the observer below. */
+  a[aria-current="true"] {
+    color: var(--accent);
+  }
+
+  a[aria-current="true"] .line {
+    width: 3.25rem;
+    background: var(--accent);
+  }
+
+  /* ── rail ─────────────────────────────────────────────────────────────── */
+  /* Part of the fixed left rail, which positions it; the labels stay visible
+     rather than appearing on hover, so the sections can be read at a glance. */
+  .rail ul {
+    gap: 0.1rem;
+  }
+
+  /* ── bar ──────────────────────────────────────────────────────────────── */
+  /* A row of chips that stays under the header while you read. It scrolls
+     sideways rather than wrapping, so it is always exactly one line tall. */
+  .bar ul {
+    flex-direction: row;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0.55rem 0;
+  }
+
+  .bar ul::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bar a {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .bar .line {
+    display: none;
+  }
+
+  .bar a[aria-current="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  @media print {
+    .section-nav {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  function initSectionNav() {
+    const navs = [...document.querySelectorAll<HTMLElement>("[data-section-nav]")];
+    if (navs.length === 0) return;
+
+    // Every nav on the page tracks the same sections, so they are wired
+    // together — a desktop rail and a mobile bar must never disagree.
+    const links = new Map<string, HTMLAnchorElement[]>();
+    for (const nav of navs) {
+      if (nav.dataset.bound) continue;
+      nav.dataset.bound = "true";
+      for (const link of nav.querySelectorAll<HTMLAnchorElement>("[data-nav-link]")) {
+        const id = link.dataset.navLink!;
+        links.set(id, [...(links.get(id) ?? []), link]);
+      }
+    }
+    if (links.size === 0) return;
+
+    const targets = [...links.keys()]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (targets.length === 0) return;
+
+    // Track how much of each section is on screen and mark the most visible
+    // one, which behaves better than "first one crossing a line" for short
+    // sections.
+    const ratios = new Map<string, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          ratios.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        }
+
+        let best = "";
+        let bestRatio = 0;
+        for (const [id, ratio] of ratios) {
+          if (ratio > bestRatio) {
+            best = id;
+            bestRatio = ratio;
+          }
+        }
+
+        for (const [id, group] of links) {
+          for (const link of group) {
+            if (id === best && bestRatio > 0) link.setAttribute("aria-current", "true");
+            else link.removeAttribute("aria-current");
+          }
+        }
+
+        // Keep the active chip in view in the scrolling mobile bar.
+        const activeChip = document.querySelector<HTMLElement>(
+          '.bar a[aria-current="true"]',
+        );
+        activeChip?.scrollIntoView({ block: "nearest", inline: "center" });
+      },
+      { threshold: [0, 0.15, 0.4, 0.7, 1], rootMargin: "-10% 0px -40% 0px" },
+    );
+
+    for (const target of targets) observer.observe(target);
+  }
+
+  initSectionNav();
+  document.addEventListener("astro:page-load", initSectionNav);
+</script>

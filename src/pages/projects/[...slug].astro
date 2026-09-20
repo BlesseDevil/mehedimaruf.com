@@ -1,0 +1,232 @@
+---
+import { render, type CollectionEntry } from "astro:content";
+import { Image } from "astro:assets";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Spotlight from "../../components/Spotlight.astro";
+import CursorRing from "../../components/CursorRing.astro";
+import { getProjects, TYPE_LABELS, BAND_LABELS, formatMonth } from "../../lib/content";
+import { EMAILS, PSEUDONYM } from "../../config";
+
+export async function getStaticPaths() {
+  const projects = await getProjects();
+  return projects.map((project) => ({
+    params: { slug: project.id },
+    props: { project },
+  }));
+}
+
+interface Props {
+  project: CollectionEntry<"projects">;
+}
+
+const { project } = Astro.props;
+const { data } = project;
+const { Content } = await render(project);
+
+const links = [
+  data.demoUrl && { label: "Open demo", href: data.demoUrl },
+  data.releaseUrl && { label: "Download", href: data.releaseUrl },
+  data.installUrl && { label: "Install", href: data.installUrl },
+  data.repo && { label: "Source on GitHub", href: data.repo },
+].filter(Boolean) as { label: string; href: string }[];
+---
+
+<BaseLayout title={data.title} description={data.summary}>
+  <Spotlight />
+  <CursorRing />
+
+  <article class="page" data-pagefind-body>
+    <p class="crumbs"><a href="/projects">Projects</a> · {BAND_LABELS[data.band]}</p>
+
+    <header>
+      <p class="meta">
+        <span class="type">{TYPE_LABELS[data.type]}</span>
+        <span class="when">{data.period ?? formatMonth(data.updated ?? data.date)}</span>
+        {data.draft && <span class="draft">Draft</span>}
+      </p>
+      <h1>{data.title}</h1>
+      <p class="lede">{data.summary}</p>
+
+      {
+        links.length > 0 && (
+          <div class="actions">
+            {links.map((link, index) => (
+              <a
+                class:list={["button", index === 0 && "primary"]}
+                href={link.href}
+                target="_blank"
+                rel="noopener"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )
+      }
+
+      {
+        data.sourcePrivate && !data.repo && (
+          <p class="private">
+            The source for this one is private. Happy to talk about how it works:{" "}
+            <a href={`mailto:${EMAILS.dev}`}>{EMAILS.dev}</a>.
+          </p>
+        )
+      }
+    </header>
+
+    {
+      data.cover && (
+        <Image class="cover" src={data.cover} alt="" widths={[640, 960, 1280]} sizes="(max-width: 48rem) 92vw, 46rem" />
+      )
+    }
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    {
+      data.stack.length > 0 && (
+        <p class="stack">
+          Built with{" "}
+          {data.stack.map((item, index) => (
+            <>
+              {index > 0 && " · "}
+              <span>{item}</span>
+            </>
+          ))}
+        </p>
+      )
+    }
+
+    <footer>
+      <p>
+        Built by <a href={PSEUDONYM.github} target="_blank" rel="noopener">{PSEUDONYM.name}</a>
+      </p>
+      <a href="/projects">← All projects</a>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  .crumbs {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0 0 2rem;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 0.6rem;
+  }
+
+  .type {
+    color: var(--accent);
+  }
+
+  .when,
+  .draft {
+    color: var(--muted);
+  }
+
+  .draft {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .lede {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.5rem;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.45rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+
+  .button:hover {
+    background: var(--accent-soft);
+  }
+
+  .button.primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .private {
+    margin-top: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    border-radius: 0.6rem;
+    margin: 2.5rem 0;
+  }
+
+  /* Typography for Markdown bodies lives in global.css as `.prose`; only the
+     page-specific spacing belongs here. */
+  .prose {
+    margin-top: 2.5rem;
+  }
+
+  .stack {
+    margin-top: 2.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  footer p {
+    margin: 0;
+  }
+</style>

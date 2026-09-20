@@ -1,0 +1,35 @@
+# Skills, grouped. Add, remove or reorder freely — each group becomes a block on
+# the CV, and `resume: true` groups also appear on the shorter résumé.
+
+groups:
+  - name: Banking operations
+    resume: true
+    items:
+      - Cash, clearing and account services
+      - KYC / e-KYC and AML-CFT compliance
+      - Clearing systems — BACH, BEFTN, RTGS
+      - Day-end reconciliation and reporting
+
+  - name: Project and event delivery
+    resume: true
+    items:
+      - Project and event management
+      - Budget planning and execution
+      - Client and stakeholder management
+      - Team leadership
+
+  - name: Language data and research
+    resume: true
+    items:
+      - Linguistic annotation and validation (PoS, parsing)
+      - Corpus development and QA
+      - Research documentation and report writing
+      - Training, mentoring and onboarding
+
+  - name: Tools
+    resume: true
+    items:
+      - Advanced Excel and Google Sheets
+      - AI-assisted workflows — Claude, Claude Code, Gemini
+      - HTML (working), CSS and JavaScript (basic)
+      - Community management

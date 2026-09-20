@@ -1,0 +1,377 @@
+---
+/**
+ * Ctrl/⌘+K — jump to any page, project or post.
+ *
+ * Two sources, merged: a short fixed list of the site's own pages, and a
+ * Pagefind search over everything published. Pagefind is generated at build
+ * time (`pagefind --site dist`), so during `npm run dev` there is no index —
+ * the palette then quietly offers only the fixed list rather than breaking.
+ *
+ * Native <dialog> again, for the focus trap and Escape.
+ */
+const PAGES = [
+  { label: "Home", href: "/", hint: "Start here" },
+  { label: "Résumé", href: "/resume", hint: "The short version" },
+  { label: "CV", href: "/cv", hint: "Everything" },
+  { label: "Projects", href: "/projects", hint: "Software and delivery work" },
+  { label: "Writing", href: "/blog", hint: "Notes and essays" },
+  { label: "RSS feed", href: "/rss.xml", hint: "Subscribe" },
+];
+---
+
+<dialog class="palette" data-palette aria-label="Search and jump to a page">
+  <form class="box" method="dialog" data-palette-form>
+    <label class="field">
+      <span class="sr-only">Search this site</span>
+      <input
+        type="search"
+        placeholder="Search, or jump to a page…"
+        autocomplete="off"
+        spellcheck="false"
+        data-palette-input
+      />
+    </label>
+
+    <ul class="results" data-palette-results>
+      {
+        PAGES.map((page) => (
+          <li>
+            <a href={page.href} data-page data-text={`${page.label} ${page.hint}`}>
+              <span class="label">{page.label}</span>
+              <span class="hint">{page.hint}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="foot">
+      <kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close
+    </p>
+  </form>
+</dialog>
+
+<style>
+  .palette {
+    width: min(34rem, 92vw);
+    /* The shorthand matters: setting only margin-top drops the `auto` side
+       margins a modal dialog relies on, and it lands in the top-left corner. */
+    margin: 12vh auto auto;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.8rem;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+
+  .palette::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
+  }
+
+  .box {
+    display: grid;
+    gap: 0;
+  }
+
+  .field {
+    display: block;
+    border-bottom: 1px solid var(--border);
+  }
+
+  input {
+    width: 100%;
+    padding: 1rem 1.15rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-size: 1rem;
+  }
+
+  input:focus {
+    outline: none;
+  }
+
+  .results {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .results a {
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.45rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .results a:hover,
+  .results a[data-active] {
+    background: var(--accent-soft);
+  }
+
+  .results a[data-active] .label {
+    color: var(--accent);
+  }
+
+  .label {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .hint :global(mark) {
+    background: var(--gold-soft);
+    color: inherit;
+    padding: 0 0.1em;
+  }
+
+  .foot {
+    margin: 0;
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    padding: 0.05rem 0.3rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.25rem;
+    margin-right: 0.15rem;
+  }
+
+  .empty {
+    padding: 1rem 1.2rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+</style>
+
+<script>
+  interface PagefindResult {
+    id: string;
+    data: () => Promise<{
+      url: string;
+      meta: { title?: string };
+      excerpt: string;
+    }>;
+  }
+
+  interface Pagefind {
+    search: (term: string) => Promise<{ results: PagefindResult[] }>;
+    init?: () => Promise<void>;
+  }
+
+  let pagefind: Pagefind | null = null;
+  let pagefindTried = false;
+
+  /**
+   * Loaded lazily, once, and only if the build produced an index.
+   *
+   * It is fetched by injecting a module script rather than calling import()
+   * directly: Astro inlines this script into the page, and an import() there
+   * compiles to a reference to Vite's preload helper, which is not present in
+   * an inlined script. The result was "__VITE_PRELOAD__ is not defined" and a
+   * search box that silently found nothing. A static import inside a script
+   * element created at runtime is never seen by the bundler at all.
+   */
+  function loadPagefind(): Promise<Pagefind | null> {
+    if (pagefindTried) return Promise.resolve(pagefind);
+    pagefindTried = true;
+
+    return new Promise((resolve) => {
+      const done = async () => {
+        pagefind = (window as unknown as { __pagefind?: Pagefind }).__pagefind ?? null;
+        try {
+          await pagefind?.init?.();
+        } catch {
+          pagefind = null;
+        }
+        resolve(pagefind);
+      };
+
+      window.addEventListener("pagefind:ready", done, { once: true });
+
+      const script = document.createElement("script");
+      script.type = "module";
+      script.textContent =
+        'import * as pf from "/pagefind/pagefind.js";' +
+        "window.__pagefind = pf;" +
+        'window.dispatchEvent(new Event("pagefind:ready"));';
+      document.head.append(script);
+
+      // No index during `npm run dev`: the import just fails, and nothing fires.
+      window.setTimeout(() => resolve(pagefind), 2000);
+    });
+  }
+
+  function initPalette() {
+    const dialogEl = document.querySelector<HTMLDialogElement>("[data-palette]");
+    if (!dialogEl || dialogEl.dataset.bound) return;
+    dialogEl.dataset.bound = "true";
+    const palette: HTMLDialogElement = dialogEl;
+
+    const input = palette.querySelector<HTMLInputElement>("[data-palette-input]")!;
+    const list = palette.querySelector<HTMLUListElement>("[data-palette-results]")!;
+    const pageItems = [...list.querySelectorAll<HTMLElement>("li")];
+
+    let active = 0;
+
+    const items = () => [...list.querySelectorAll<HTMLAnchorElement>("a")].filter(
+      (a) => !a.closest("li")!.hidden,
+    );
+
+    function mark(index: number) {
+      const all = items();
+      if (all.length === 0) return;
+      active = (index + all.length) % all.length;
+      all.forEach((a, i) => {
+        if (i === active) {
+          a.dataset.active = "";
+          a.scrollIntoView({ block: "nearest" });
+        } else {
+          delete a.dataset.active;
+        }
+      });
+    }
+
+    function open() {
+      input.value = "";
+      resetToPages();
+      palette.showModal();
+      input.focus();
+    }
+
+    function resetToPages() {
+      for (const li of pageItems) {
+        li.hidden = false;
+        list.append(li);
+      }
+      for (const li of [...list.querySelectorAll("li[data-result]")]) li.remove();
+      mark(0);
+    }
+
+    async function search(term: string) {
+      const query = term.trim();
+
+      // Filter the fixed pages on whatever is typed.
+      for (const li of pageItems) {
+        const text = li.querySelector<HTMLElement>("[data-text]")!.dataset.text!.toLowerCase();
+        li.hidden = query.length > 0 && !text.includes(query.toLowerCase());
+      }
+      for (const li of [...list.querySelectorAll("li[data-result]")]) li.remove();
+
+      if (query.length < 2) {
+        mark(0);
+        return;
+      }
+
+      const engine = await loadPagefind();
+      if (!engine) {
+        mark(0);
+        return;
+      }
+
+      const found = await engine.search(query);
+      // Racing input: only paint if this is still what is typed.
+      if (input.value.trim() !== query) return;
+
+      for (const result of found.results.slice(0, 6)) {
+        const data = await result.data();
+        const li = document.createElement("li");
+        li.dataset.result = "";
+        li.innerHTML = `<a href="${data.url}"><span class="label"></span><span class="hint"></span></a>`;
+        li.querySelector(".label")!.textContent = data.meta.title ?? data.url;
+        // Pagefind's excerpt contains <mark> around the match, which we want.
+        li.querySelector(".hint")!.innerHTML = data.excerpt;
+        list.append(li);
+      }
+
+      if (items().length === 0) {
+        const li = document.createElement("li");
+        li.dataset.result = "";
+        li.className = "empty";
+        li.textContent = `Nothing found for “${query}”.`;
+        list.append(li);
+      }
+      mark(0);
+    }
+
+    let debounce: number | undefined;
+    input.addEventListener("input", () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => void search(input.value), 120);
+    });
+
+    palette.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        mark(active + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        mark(active - 1);
+      } else if (event.key === "Enter") {
+        const target = items()[active];
+        if (target) {
+          event.preventDefault();
+          window.location.href = target.href;
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        palette.close();
+      }
+    });
+
+    palette.addEventListener("pointerdown", (event) => {
+      if (event.target === palette) palette.close();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        if (palette.open) palette.close();
+        else open();
+      }
+      // "/" is the other habit people have, but not while they are typing.
+      if (
+        key === "/" &&
+        !palette.open &&
+        !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement)
+      ) {
+        event.preventDefault();
+        open();
+      }
+    });
+
+    for (const trigger of document.querySelectorAll("[data-palette-open]")) {
+      trigger.addEventListener("click", () => open());
+    }
+  }
+
+  initPalette();
+  document.addEventListener("astro:page-load", initPalette);
+</script>

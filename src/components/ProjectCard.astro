@@ -1,0 +1,171 @@
+---
+import { Image } from "astro:assets";
+import type { CollectionEntry } from "astro:content";
+import { TYPE_LABELS, formatMonth } from "../lib/content";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+}
+
+const { project } = Astro.props;
+const { data } = project;
+
+/** The one action that matters most for this kind of project. */
+const action = data.releaseUrl
+  ? { label: "Download", href: data.releaseUrl }
+  : data.installUrl
+    ? { label: "Install", href: data.installUrl }
+    : data.demoUrl
+      ? { label: "Open demo", href: data.demoUrl }
+      : data.repo
+        ? { label: "Source", href: data.repo }
+        : null;
+---
+
+<article class="card">
+  <a class="face" href={`/projects/${project.id}`}>
+    {
+      data.cover && (
+        <Image class="cover" src={data.cover} alt="" widths={[320, 640]} sizes="(max-width: 48rem) 90vw, 20rem" />
+      )
+    }
+    <p class="meta">
+      <span class="type">{TYPE_LABELS[data.type]}</span>
+      <span class="when">{data.period ?? formatMonth(data.updated ?? data.date)}</span>
+    </p>
+    <h3>{data.title}</h3>
+    <p class="summary">{data.summary}</p>
+  </a>
+
+  <footer>
+    {
+      data.stack.length > 0 && (
+        <ul class="stack">
+          {data.stack.map((item) => (
+            <li>{item}</li>
+          ))}
+        </ul>
+      )
+    }
+    <div class="links">
+      {data.sourcePrivate && !data.repo && <span class="private">Source private</span>}
+      {
+        action && (
+          <a class="action" href={action.href} target="_blank" rel="noopener">
+            {action.label}
+          </a>
+        )
+      }
+    </div>
+  </footer>
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 100%;
+    padding: 1.35rem;
+    border: 1px solid var(--border);
+    border-radius: 0.7rem;
+    background: var(--surface);
+    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+
+  .face {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .cover {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 0.45rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .type {
+    color: var(--accent);
+  }
+
+  .when {
+    color: var(--muted);
+  }
+
+  h3 {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.5rem 0 0.4rem;
+  }
+
+  .summary {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.93rem;
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .stack li {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    padding: 0.12rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .private {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .action {
+    white-space: nowrap;
+  }
+</style>

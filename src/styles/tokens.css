@@ -1,0 +1,137 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Design tokens — the two themes.
+
+     Blessed = light  (champagne paper, maroon ink)
+     Devil   = dark   (wine-black, gold links, crimson glow)
+
+   Colours are sampled from the BlesseDevil emblem, not from the brand sheets
+   (those are AI-generated and their hex values are unreliable):
+
+     gold      #E4CC9C  #D8B478  #CCA86C
+     crimson   #A81830  #9C1830
+     maroon    #780C24  #6C0C18  #54000C
+     charcoal  #3C3C3C  #303030  #242424
+     cream     #F0E4C0  #FCE4CC
+
+   Every token is written ONCE, as light-dark(blessed, devil). The theme is then
+   chosen only by `color-scheme`:
+
+     no attribute            → follows the operating system
+     data-theme="blessed"    → forced light
+     data-theme="devil"      → forced dark
+
+   The attribute is set before paint by the inline script in BaseLayout. Writing
+   each value once is not tidiness for its own sake: the earlier version repeated
+   the dark palette in three places, and new tokens were silently missing from
+   the OS-dark copy.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light dark;
+
+  /* ── Surfaces and text ─────────────────────────────────────────────────── */
+  --bg: light-dark(#fbf5ec, #1a0b10);
+  --bg-alt: light-dark(#f5ecdd, #200e14);
+  --surface: light-dark(#fffdf8, #26121a);
+  --border: light-dark(#e8dccb, #3a1e27);
+  --border-strong: light-dark(#d8c6ad, #4e2a34);
+  --text: light-dark(#2a1117, #f2e6d8);
+  --muted: light-dark(#6e5a52, #a8958c);
+
+  /* Links and primary actions: maroon on paper, gold on wine-black. */
+  --accent: light-dark(#7a0f24, #d8b478);
+  --accent-hover: light-dark(#5c0a1b, #e8c893);
+  --accent-fg: light-dark(#fbf3e8, #1a0b10);
+  --accent-soft: light-dark(rgba(122, 15, 36, 0.09), rgba(216, 180, 120, 0.12));
+
+  /* Gold is decorative in Blessed — too light to carry body text there. */
+  --gold: light-dark(#b38a4c, #d8b478);
+  --gold-soft: light-dark(rgba(179, 138, 76, 0.14), rgba(216, 180, 120, 0.14));
+
+  /* Crimson is for fills and glow in both themes, never for small text. */
+  --crimson: #a81830;
+  --crimson-bright: #c21f3a;
+
+  /* The visible edge of an interactive control — a text field's border is the
+     only thing that says "type here", so WCAG asks for 3:1 against the page.
+     --border and --border-strong are for decoration (dividers, rules) and are
+     deliberately quieter than this. */
+  --control-edge: light-dark(#948068, #8a7568);
+
+  --ring: light-dark(rgba(122, 15, 36, 0.45), rgba(216, 180, 120, 0.5));
+  /* Blessed needs roughly double the alpha to register at all on paper; the
+     same value that glows on wine-black simply vanishes on champagne. */
+  --spotlight: light-dark(rgba(122, 15, 36, 0.11), rgba(216, 180, 120, 0.07));
+  --spotlight-size: 32rem; /* 90% of the original 36rem */
+  --shadow:
+    0 1px 2px light-dark(rgba(42, 17, 23, 0.05), rgba(0, 0, 0, 0.5)),
+    0 10px 30px light-dark(rgba(42, 17, 23, 0.07), rgba(0, 0, 0, 0.5));
+
+  /* ── Portal ────────────────────────────────────────────────────────────── */
+  /* Blessed: ink blooming on paper, so the blobs multiply and the rim is eaten
+     away with the paper colour. Devil: light adding up on wine-black, so they
+     screen and the rim is bitten out with black. */
+  --portal-backdrop: light-dark(#f3eadb, #140a0e);
+  /* NOT light-dark(): that function only produces a <color>. Used for a blend
+     mode it substitutes an invalid value, the property falls back to `normal`,
+     and the blobs stack as flat opaque discs instead of blending — which is
+     exactly what it did here until it was measured. Written out per theme
+     below, where it actually takes effect. */
+  --portal-blend: multiply;
+  /* Three inks from one family — crimson, wine, deep maroon — not three hues.
+     A gold ink here read as mustard rather than brand gold: `screen` adds its
+     red and green together until the whole orb is yellow, and there is no
+     amount of dimming that brings it back. The orb is a maroon bloom with a
+     white-hot middle, which is where the palette already lives. */
+  /* The Devil values are deliberately darker than they look on their own:
+     `screen` adds five of them together, so inks picked to read as crimson
+     alone come out as hot pink once they overlap. */
+  --portal-ink-1: light-dark(#b01b33, #86101f);
+  --portal-ink-2: light-dark(#8e1128, #5c0a17);
+  --portal-ink-3: light-dark(#63101f, #3c0710);
+  --portal-text: light-dark(#2a1117, #efe3d2);
+  /* The core blob: on wine-black it screen-blends to a hot centre; on paper it
+     multiplies to almost nothing, which is what the parchment version wants. */
+  --portal-core: light-dark(#f7efe2, #fff6ef);
+  --portal-rim: light-dark(#f3eadb, #000000);
+  --portal-halo: light-dark(rgba(122, 15, 36, 0.35), rgba(255, 255, 255, 0.85));
+  /* Nearly opaque: the cards sit on the orb's brightest part, and a translucent
+     panel there cannot hold readable text. */
+  --portal-card: light-dark(rgba(255, 253, 248, 0.94), rgba(20, 10, 13, 0.88));
+  --portal-card-border: light-dark(rgba(42, 17, 23, 0.25), rgba(242, 230, 216, 0.35));
+}
+
+:root[data-theme="blessed"] {
+  color-scheme: light;
+  --portal-blend: multiply;
+}
+
+:root[data-theme="devil"] {
+  color-scheme: dark;
+  --portal-blend: screen;
+}
+
+/* Following the system, with no explicit choice made. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="blessed"]) {
+    --portal-blend: screen;
+  }
+}
+
+/* ── Type scale, spacing, motion ─────────────────────────────────────────── */
+:root {
+  /* Fonts. These four variables are the only place a font is named, so
+     swapping one means changing a line here and an import in global.css. */
+  --font-display: "Petrona Variable", Georgia, serif;
+  --font-body: "Source Sans 3 Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
+  --font-bangla: "Tiro Bangla", "Noto Sans Bengali", serif;
+
+  --measure: 68ch; /* comfortable reading width */
+  --page-max: 78rem;
+
+  --dur-fast: 140ms;
+  --dur: 260ms;
+  --dur-slow: 700ms;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+}

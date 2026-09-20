@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+/* Self-hosted faces — no runtime request to Google, and no third-party cookies.
+   Display face chosen 2026-09-21 after comparing specimens of the name itself:
+   Fraunces' hooked "f" spoiled "Maruf". Petrona's is plain.
+   Swapping faces means changing these four imports and the four --font-*
+   variables in tokens.css; nothing else in the project names a font. */
+@import "@fontsource-variable/petrona";
+@import "@fontsource-variable/source-sans-3";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource/tiro-bangla/bengali.css";
+
+@import "./tokens.css";
+
+/* Map the tokens into Tailwind so utilities like bg-bg / text-muted exist. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-alt: var(--bg-alt);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-gold: var(--gold);
+  --color-crimson: var(--crimson);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+/* `devil:` / `blessed:` variants for the rare rule that must differ per theme. */
+@custom-variant devil (&:where([data-theme="devil"], [data-theme="devil"] *));
+@custom-variant blessed (&:where([data-theme="blessed"], [data-theme="blessed"] *));
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 4rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.7;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0;
+}
+
+p, li {
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Bangla content: set by lang="bn" on the article, never guessed. */
+:lang(bn) {
+  font-family: var(--font-bangla);
+  line-height: 1.9;
+}
+
+/* ── Long-form text ──────────────────────────────────────────────────────── */
+/* Shared by blog posts and project write-ups. Tailwind's reset removes list
+   markers and heading sizes, so anything coming from Markdown needs them back. */
+.prose {
+  max-width: var(--measure);
+}
+
+.prose h2 {
+  font-size: 1.45rem;
+  margin: 2.5rem 0 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.5rem;
+}
+
+.prose p,
+.prose ul,
+.prose ol,
+.prose blockquote,
+.prose pre,
+.prose figure {
+  margin: 0 0 1.1rem;
+}
+
+.prose ul,
+.prose ol {
+  list-style: disc;
+  padding-left: 1.2rem;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li {
+  margin-bottom: 0.4rem;
+}
+
+.prose li::marker {
+  color: var(--gold);
+}
+
+.prose blockquote {
+  border-left: 2px solid var(--gold);
+  padding-left: 1rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--accent-soft);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+}
+
+.prose pre {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-alt);
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+/* Every decorative animation in this project is written so that switching it
+   off here leaves the page fully usable. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

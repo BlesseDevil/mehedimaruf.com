@@ -1,0 +1,98 @@
+---
+import { EMAILS } from "../config";
+import { profile } from "../lib/site-data";
+
+/**
+ * The social icons, in one of two places.
+ *
+ * `rail`   — the fixed column at the top right, which is where they live once
+ *            the hero has been scrolled past.
+ * `inline` — a row under the hero text, which is where they start.
+ *
+ * Both render the same list from the same data, so the handover between them
+ * cannot end up showing two different sets of links.
+ */
+interface Props {
+  variant?: "rail" | "inline";
+}
+
+const { variant = "rail" } = Astro.props;
+
+const ICONS: Record<string, string> = {
+  GitHub:
+    "M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85l-.01 2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z",
+  LinkedIn:
+    "M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM3 9h4v12H3V9Zm7 0h3.8v1.71h.05c.53-.95 1.83-1.96 3.76-1.96 4.02 0 4.76 2.5 4.76 5.75V21h-4v-5.7c0-1.36-.03-3.12-1.95-3.12-1.96 0-2.26 1.48-2.26 3.02V21h-4V9Z",
+  Email:
+    "M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1.4 2L12 12.2 19.6 7H4.4Z",
+};
+
+const socials = [
+  ...profile.links.map((link) => ({ ...link, external: true })),
+  { label: "Email", href: `mailto:${EMAILS.contact}`, external: false },
+];
+---
+
+<ul class:list={["socials", variant]}>
+  {
+    socials.map((item) => (
+      <li>
+        <a
+          href={item.href}
+          aria-label={item.label}
+          title={item.label}
+          {...(item.external ? { target: "_blank", rel: "noopener me" } : {})}
+        >
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d={ICONS[item.label] ?? ICONS.Email} />
+          </svg>
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .socials {
+    display: grid;
+    gap: 0.9rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .socials.rail {
+    padding-left: 0.4rem;
+  }
+
+  .socials.inline {
+    grid-auto-flow: column;
+    justify-content: start;
+    gap: 1.1rem;
+  }
+
+  a {
+    display: block;
+    color: var(--muted);
+    transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  a:hover,
+  a:focus-visible {
+    color: var(--accent);
+    transform: translateY(-3px);
+  }
+
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+    display: block;
+  }
+
+  @media print {
+    .socials {
+      display: none;
+    }
+  }
+</style>

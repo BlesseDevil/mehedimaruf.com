@@ -1,0 +1,418 @@
+---
+import "../styles/global.css";
+import { SITE, EMAILS, PSEUDONYM } from "../config";
+import ThemeToggle from "../components/ThemeToggle.astro";
+import Portal from "../components/Portal.astro";
+import CommandPalette from "../components/CommandPalette.astro";
+import Socials from "../components/Socials.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Set on <article> pages that are written in Bangla. */
+  lang?: string;
+  /**
+   * The header's copy of the name. Pages whose own large name shrinks into it
+   * pass `morph`, and the mark then waits until that handover has happened.
+   */
+  mark?: boolean;
+  markLabel?: string;
+  morph?: boolean;
+  /** An address shown beside the mark — the CV's, where it is the point. */
+  headMail?: string;
+}
+
+const {
+  title,
+  description = SITE.description,
+  lang = SITE.locale,
+  mark = true,
+  markLabel = SITE.shortName,
+  morph = false,
+  headMail,
+} = Astro.props;
+const pageTitle = title ? `${title} · ${SITE.name}` : SITE.title;
+const canonical = new URL(Astro.url.pathname, SITE.url).href;
+
+/**
+ * On the home page the name is already enormous in the hero, so the header's
+ * copy of it stays hidden until the big one has shrunk away. Everywhere else it
+ * is there from the first pixel — that is the way back home from a long CV.
+ */
+const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    {/* Browser UI colour per theme — wine-black in Devil, champagne in Blessed. */}
+    <meta name="theme-color" content="#FBF5EC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1A0B10" media="(prefers-color-scheme: dark)" />
+    <link rel="alternate" type="application/rss+xml" title={SITE.name} href="/rss.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    {/* Theme before paint: no flash of the wrong theme. Kept tiny and inline. */}
+    <script is:inline>
+      try {
+        var saved = localStorage.getItem("mm-theme");
+        if (saved === "blessed" || saved === "devil") {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (e) {
+        /* blocked storage: fall through to the OS preference */
+      }
+    </script>
+
+    <slot name="head" />
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header
+      class="site-head"
+      data-header
+      data-home={isHome ? "" : undefined}
+      data-morph={morph ? "" : undefined}
+    >
+      {/* The bar is full-bleed so its blurred backing runs edge to edge; the
+          contents are what stay inside the page's column. A backing that
+          stopped at --page-max read as a lighter panel floating in the middle
+          of the screen. */}
+      <div class="head-inner">
+        {mark && <a class="mark" href="/" data-site-mark>{markLabel}</a>}
+        {headMail && (
+          <a class="head-mail" href={`mailto:${headMail}`}>
+            {headMail}
+          </a>
+        )}
+
+        <div class="head-tools">
+          <button class="search" type="button" data-palette-open aria-label="Search this site">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="m16 16 4.5 4.5" />
+            </svg>
+            <kbd>Ctrl K</kbd>
+          </button>
+          <ThemeToggle />
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    {/* Every page, not just the home page: it is how you reach him from
+        wherever you happen to have stopped reading. On the home page it waits
+        until the hero's own copy has been scrolled past. */}
+    <div class="social-rail">
+      {/* The line drops from the top of the screen into the icons, rather than
+          hanging off the bottom of them with nothing to reach. */}
+      <span class="divider" aria-hidden="true"></span>
+      <Socials variant="rail" />
+    </div>
+
+    <footer class="site-foot">
+      <p class="who">
+        © {new Date().getFullYear()} {SITE.name} · software signed{" "}
+        <a href={PSEUDONYM.github} target="_blank" rel="noopener">{PSEUDONYM.name}</a>
+      </p>
+      <nav aria-label="Footer">
+        <a href="/resume">Résumé</a>
+        <a href="/projects">Projects</a>
+        <a href="/blog">Writing</a>
+        <a href="/rss.xml">RSS</a>
+        <a href={`mailto:${EMAILS.contact}`}>{EMAILS.contact}</a>
+      </nav>
+    </footer>
+
+    {/* Always available, on every page — the way out to everything else. */}
+    <Portal />
+    <CommandPalette />
+
+    <script>
+      /**
+       * Header behaviour: pinned, but it slides away while you scroll down and
+       * comes straight back when you scroll up. The threshold keeps it from
+       * flickering on the small bounces a trackpad produces.
+       */
+      function initHeader() {
+        const header = document.querySelector<HTMLElement>("[data-header]");
+        if (!header || header.dataset.bound) return;
+        header.dataset.bound = "true";
+
+        let last = window.scrollY;
+        let queued = false;
+
+        const apply = () => {
+          queued = false;
+          const y = window.scrollY;
+          const delta = y - last;
+
+          if (y > 24) header.dataset.scrolled = "";
+          else delete header.dataset.scrolled;
+
+          // Ignore anything under 6px: that is noise, not intent.
+          if (Math.abs(delta) > 6) {
+            const held = header.dataset.hold !== undefined;
+            if (delta > 0 && y > 140 && !held) header.dataset.hidden = "";
+            else delete header.dataset.hidden;
+            last = y;
+          }
+        };
+
+        window.addEventListener(
+          "scroll",
+          () => {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(apply);
+          },
+          { passive: true },
+        );
+
+        apply();
+      }
+
+      initHeader();
+      document.addEventListener("astro:page-load", initHeader);
+    </script>
+  </body>
+</html>
+
+<style>
+  /* Sticky, and it gets out of the way when you are reading downwards. The
+     background only appears once the page has scrolled, so at the top it is
+     invisible over the hero. */
+  .site-head {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    transition: background 280ms var(--ease);
+  }
+
+  .head-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 1.25rem clamp(1rem, 4vw, 2.5rem);
+  }
+
+  /* With no mark the tools still belong on the right. */
+  .head-tools {
+    margin-left: auto;
+  }
+
+  .site-head[data-scrolled] {
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Scrolling down takes away the controls and the backing, but never the name:
+     it is the way home from anywhere on the site. */
+  .site-head[data-hidden] {
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .site-head[data-hidden] .head-tools {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-140%);
+  }
+
+  .head-tools {
+    transition: opacity 240ms var(--ease), transform 280ms var(--ease);
+  }
+
+  /* Where a large name on the page shrinks into it, the mark is the landing
+     point of that handover, so it fades in only once it has happened. */
+  .site-head[data-morph] .mark,
+  .site-head[data-morph] .head-mail {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--ease);
+  }
+
+  .site-head[data-morph][data-title-parked] .mark,
+  .site-head[data-morph][data-title-parked] .head-mail {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .head-mail {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color var(--dur) var(--ease), opacity 200ms var(--ease);
+  }
+
+  .head-mail:hover {
+    color: var(--accent);
+  }
+
+  /* On a narrow bar the name is the one that has to survive. */
+  @media (max-width: 48rem) {
+    .head-mail {
+      display: none;
+    }
+  }
+
+  .mark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .mark:hover {
+    color: var(--accent);
+  }
+
+  .head-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+
+  .search:hover {
+    color: var(--accent);
+    border-color: var(--border-strong);
+  }
+
+  .search svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .search kbd {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* The keyboard hint is noise on a touch device. */
+  @media (max-width: 30rem), (pointer: coarse) {
+    .search kbd {
+      display: none;
+    }
+  }
+
+  /* Top right, clear of the header's own controls. The bottom corners belong to
+     the portal door, and the left gutter to the section names. */
+  .social-rail {
+    position: fixed;
+    right: clamp(1rem, 3vw, 2.5rem);
+    top: 4.75rem;
+    z-index: 5;
+    display: grid;
+    justify-items: center;
+    gap: 0.9rem;
+    transition: opacity 320ms var(--ease), transform 320ms var(--ease);
+  }
+
+  /* On the home page the hero owns them to begin with: the header sets
+     data-title-parked at the end of the shrink, and that is the cue to fly in.
+     Everywhere else they are simply there. */
+  .site-head[data-home]:not([data-title-parked]) ~ .social-rail {
+    opacity: 0;
+    transform: translateY(-0.6rem);
+    pointer-events: none;
+  }
+
+  .social-rail .divider {
+    width: 1px;
+    height: 3rem;
+    background: var(--border-strong);
+  }
+
+  /* The rail lives in the page gutter, so it waits until the gutter is wider
+     than the rail itself. */
+  @media (max-width: 80rem) {
+    .social-rail {
+      display: none;
+    }
+  }
+
+  @media print {
+    .social-rail {
+      display: none;
+    }
+  }
+
+  .site-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    max-width: var(--page-max);
+    margin: 4rem auto 0;
+    padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .site-foot p {
+    margin: 0;
+  }
+
+  .site-foot nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  @media print {
+    .site-head,
+    .site-foot {
+      display: none;
+    }
+  }
+
+  /* The sticky header must not cover an anchor target. */
+  :global(html) {
+    scroll-padding-top: 5rem;
+  }
+</style>

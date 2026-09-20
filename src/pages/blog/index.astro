@@ -1,0 +1,250 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Spotlight from "../../components/Spotlight.astro";
+import CursorRing from "../../components/CursorRing.astro";
+import { getPosts, postHref, collectTags, formatDate, readingTime } from "../../lib/content";
+
+const posts = await getPosts();
+const tags = collectTags(posts);
+
+/** Grouped by year, newest first — the shape a reading list wants. */
+const years = [...new Set(posts.map((post) => post.data.date.getFullYear()))].sort((a, b) => b - a);
+---
+
+<BaseLayout
+  title="Writing"
+  description="Essays and notes by Mehedi Hasan Maruf on language data, operations and building small tools."
+>
+  <Spotlight />
+  <CursorRing />
+
+  <div class="page">
+    <header class="head">
+      <p class="eyebrow">Writing</p>
+      <h1>Notes and essays</h1>
+      <p class="lede">
+        Mostly about language data, operations, and what happens when you hand parts of your job
+        to a machine. Some pieces are published elsewhere and link straight out.
+      </p>
+
+      {
+        tags.length > 0 && (
+          <ul class="tags">
+            {tags.map((tag) => (
+              <li>
+                <a href={`/blog/tags/${tag.slug}`}>
+                  {tag.tag} <span class="count">{tag.count}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+
+    {
+      years.map((year) => (
+        <section class="year">
+          <h2>{year}</h2>
+          <ul class="posts">
+            {posts
+              .filter((post) => post.data.date.getFullYear() === year)
+              .map((post) => (
+                <li>
+                  <a
+                    href={postHref(post)}
+                    {...(post.data.external ? { target: "_blank", rel: "noopener" } : {})}
+                  >
+                    <h3>
+                      {post.data.title}
+                      {post.data.external && <span class="out" aria-hidden="true">↗</span>}
+                    </h3>
+                    <p class="summary">{post.data.description}</p>
+                    <p class="meta">
+                      <span>{formatDate(post.data.date)}</span>
+                      {post.data.external ? (
+                        <span class="where">{post.data.external.publication}</span>
+                      ) : (
+                        <span>{readingTime(post.body)} min read</span>
+                      )}
+                      {post.data.lang === "bn" && <span class="lang">বাংলা</span>}
+                      {post.data.draft && <span class="draft">Draft</span>}
+                    </p>
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ))
+    }
+
+    {
+      posts.length === 0 && (
+        <p class="empty">
+          Nothing here yet — the first piece is on its way.
+          {import.meta.env.DEV && (
+            <span class="dev-note"> Add one in <code>src/content/blog/</code>.</span>
+          )}
+        </p>
+      )
+    }
+
+    <p class="feed"><a href="/rss.xml">RSS feed</a></p>
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: clamp(1rem, 4vh, 3rem) clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .lede {
+    max-width: var(--measure);
+    color: var(--muted);
+    margin: 1rem 0 0;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 1.75rem 0 0;
+    padding: 0;
+  }
+
+  .tags a {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .tags a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .count {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    opacity: 0.7;
+  }
+
+  .year {
+    margin-top: 3rem;
+  }
+
+  .year h2 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .posts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .posts a {
+    display: block;
+    padding: 1.4rem 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .posts a:hover h3 {
+    color: var(--accent);
+  }
+
+  .posts h3 {
+    font-family: var(--font-body);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    transition: color var(--dur) var(--ease);
+  }
+
+  .out {
+    font-size: 0.8em;
+    color: var(--muted);
+    margin-left: 0.3rem;
+  }
+
+  .summary {
+    margin: 0.4rem 0 0.6rem;
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .where,
+  .lang {
+    color: var(--accent);
+  }
+
+  .draft {
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0 0.5rem;
+  }
+
+  .empty {
+    color: var(--muted);
+    margin-top: 2.5rem;
+  }
+
+  /* Only rendered during development, so it never reaches a visitor. */
+  .dev-note {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  .feed {
+    margin-top: 3rem;
+    font-size: 0.85rem;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+</style>

@@ -1,0 +1,550 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Spotlight from "../components/Spotlight.astro";
+import CursorRing from "../components/CursorRing.astro";
+import SectionNav from "../components/SectionNav.astro";
+import LeftRail from "../components/LeftRail.astro";
+import PhotoCrossfade from "../components/PhotoCrossfade.astro";
+import Socials from "../components/Socials.astro";
+import TitleMorph from "../components/TitleMorph.astro";
+import ContactForm from "../components/ContactForm.astro";
+import { profile } from "../lib/site-data";
+import { EMAILS } from "../config";
+
+/** Live entries only — drafts stay out of every listing. */
+const published = <T extends { data: { draft: boolean } }>(entries: T[]) =>
+  entries.filter((entry) => !entry.data.draft);
+
+const projects = published(await getCollection("projects"));
+const posts = published(await getCollection("blog"));
+
+const featured = [
+  ...projects.filter((p) => p.data.featured).map((p) => ({
+    kind: p.data.band === "irl" ? "Project" : "Software",
+    title: p.data.title,
+    summary: p.data.summary,
+    href: `/projects/${p.id}`,
+    date: p.data.updated ?? p.data.date,
+  })),
+  ...posts.filter((p) => p.data.featured).map((p) => ({
+    kind: p.data.external ? p.data.external.publication : "Writing",
+    title: p.data.title,
+    summary: p.data.description,
+    href: p.data.external?.url ?? `/blog/${p.id}`,
+    date: p.data.date,
+  })),
+].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+
+/**
+ * One mixed strip rather than separate "latest posts" and "latest projects"
+ * rows: it stays full even when one side of the work is quiet.
+ */
+const recent = [
+  ...projects.map((p) => ({
+    kind: p.data.band === "irl" ? "Project" : "Software",
+    title: p.data.title,
+    summary: p.data.summary,
+    href: `/projects/${p.id}`,
+    date: p.data.updated ?? p.data.date,
+  })),
+  ...posts.map((p) => ({
+    kind: p.data.external ? p.data.external.publication : "Writing",
+    title: p.data.title,
+    summary: p.data.description,
+    href: p.data.external?.url ?? `/blog/${p.id}`,
+    date: p.data.date,
+  })),
+]
+  .sort((a, b) => b.date.valueOf() - a.date.valueOf())
+  .slice(0, 4);
+
+const sections = [
+  { id: "top", label: "Intro", show: true },
+  { id: "about", label: "About", show: true },
+  { id: "featured", label: "Featured", show: featured.length > 0 },
+  { id: "recently", label: "Recently", show: recent.length > 0 },
+  { id: "contact", label: "Contact", show: true },
+].filter((s) => s.show);
+
+const dateLabel = (value: Date) =>
+  value.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+---
+
+<BaseLayout morph>
+  <Spotlight />
+  <CursorRing />
+  <LeftRail sections={sections} />
+  <TitleMorph />
+
+  <section id="top" class="hero">
+    <div class="hero-text">
+      {
+        profile.positioning.length > 0 && (
+          <p class="eyebrow">{profile.positioning.join(" · ")}</p>
+        )
+      }
+      {/* No morph on a phone: the photo stacks above this text there, and the
+          travel carried the name straight over the portrait. */}
+      <h1 data-hero-title data-morph-off="(max-width: 60rem)">{profile.name}</h1>
+      <p class="role">{profile.role}</p>
+      {profile.motto && <blockquote class="motto">{profile.motto}</blockquote>}
+
+      <div class="cta">
+        <a class="button primary" href="/resume">View résumé</a>
+        <a class="button" href={`mailto:${EMAILS.contact}`}>Get in touch</a>
+      </div>
+
+      {/* Where the socials start. They hand over to the fixed top-right rail
+          once the hero name has shrunk into the header. */}
+      <div class="hero-socials">
+        <Socials variant="inline" />
+      </div>
+    </div>
+
+    <div class="hero-photo">
+      <PhotoCrossfade />
+    </div>
+
+    <a class="scroll-hint" href="#about" aria-label="Scroll to About">
+      <span>Scroll</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m0 0 5-5m-5 5-5-5" /></svg>
+    </a>
+  </section>
+
+  <div class="mobile-nav">
+    <SectionNav sections={sections} variant="bar" />
+  </div>
+
+  <section id="about" class="band">
+    <h2>About</h2>
+    <div class="about">
+      <p class="lede">{profile.about}</p>
+      {
+        profile.proofPoints.length > 0 && (
+          <ul class="proof">
+            {profile.proofPoints.map((point) => (
+              <li>
+                <span class="value">{point.value}</span>
+                <span class="label">{point.label}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </div>
+  </section>
+
+  {
+    featured.length > 0 && (
+      <section id="featured" class="band">
+        <h2>Featured</h2>
+        <ul class="cards">
+          {featured.slice(0, 3).map((item) => (
+            <li>
+              <a href={item.href}>
+                <span class="kind">{item.kind}</span>
+                <h3>{item.title}</h3>
+                <p>{item.summary}</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    recent.length > 0 && (
+      <section id="recently" class="band">
+        <h2>Recently</h2>
+        <ul class="strip">
+          {recent.map((item) => (
+            <li>
+              <a href={item.href}>
+                <span class="kind">{item.kind}</span>
+                <h3>{item.title}</h3>
+                <span class="when">{dateLabel(item.date)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  <section id="contact" class="band contact">
+    <h2>Contact</h2>
+    <p class="lede">
+      Open to work in operations, research and language data — and always glad to talk about
+      Bangla language technology, or about the tools on this site.
+    </p>
+    <ContactForm />
+    <ul class="elsewhere">
+      {
+        profile.links.map((link) => (
+          <li>
+            <a href={link.href} target="_blank" rel="noopener me">
+              {link.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</BaseLayout>
+
+<style>
+  /* Narrower than the CV: this page is mostly prose, and the slimmer column
+     leaves the gutters free for the two fixed rails. */
+  .hero,
+  .band {
+    position: relative;
+    z-index: 1;
+    max-width: 62rem;
+    margin: 0 auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+    scroll-margin-top: 4rem;
+  }
+
+  /* ── Hero ─────────────────────────────────────────────────────────────── */
+  .hero {
+    min-height: min(88vh, 46rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) auto;
+    align-items: center;
+    gap: clamp(2rem, 6vw, 5rem);
+    padding-block: clamp(2rem, 6vh, 5rem) 6rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-size: clamp(2.7rem, 7vw, 5rem);
+    letter-spacing: -0.025em;
+    margin: 0;
+    /* The title shrinks into the header as you scroll, so it has to ride above
+       the header's own background until the handover is done. */
+    position: relative;
+    z-index: 31;
+    transform-origin: left top;
+    will-change: transform;
+  }
+
+  h1[data-parked] {
+    visibility: hidden;
+  }
+
+  .role {
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    color: var(--muted);
+    max-width: 34ch;
+    margin: 1rem 0 0;
+  }
+
+  .motto {
+    font-family: var(--font-display);
+    font-style: italic;
+    color: var(--muted);
+    border-left: 2px solid var(--gold);
+    margin: 1.5rem 0 0;
+    padding-left: 1rem;
+    max-width: 42ch;
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 0.7rem 1.3rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.45rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  .button:hover {
+    background: var(--accent-soft);
+    transform: translateY(-2px);
+  }
+
+  .button.primary {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .button.primary:hover {
+    background: var(--accent-hover);
+  }
+
+  .hero-socials {
+    margin-top: 2rem;
+    transition: opacity 320ms var(--ease);
+  }
+
+  /* Once the rail has them, the hero's copy fades out rather than the two
+     sitting on screen together. Only where the rail exists: below its
+     breakpoint these are the only socials on the page. */
+  @media (min-width: 80.0625rem) {
+    :global(.site-head[data-title-parked]) ~ :global(#main) .hero-socials {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  /* The frame breathes: a degree of rotation and a few pixels of rise, over
+     eleven seconds. Deliberately below the threshold where you would call it
+     an animation — it reads as a photograph being straightened, not as
+     something moving. The frame itself leans towards the cursor, so the float
+     is applied out here, a level up, where the two cannot fight over the same
+     transform. */
+  .hero-photo {
+    justify-self: end;
+    animation: hero-float 11s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes hero-float {
+    from {
+      transform: rotate(-0.7deg) translateY(4px);
+    }
+    to {
+      transform: rotate(0.7deg) translateY(-4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-photo {
+      animation: none;
+    }
+  }
+
+  .scroll-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    color: var(--muted);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .scroll-hint svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation: hero-nudge 2.4s var(--ease) infinite;
+  }
+
+  @keyframes hero-nudge {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(0.3rem); opacity: 1; }
+  }
+
+  .scroll-hint:hover {
+    color: var(--accent);
+  }
+
+  /* The chip bar replaces the rail below the rail's breakpoint, and pins itself
+     under the header so the sections stay reachable while reading. */
+  .mobile-nav {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 20;
+    max-width: 62rem;
+    margin: 0 auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  @media (min-width: 80.0625rem) {
+    .mobile-nav {
+      display: none;
+    }
+  }
+
+  /* ── Bands ────────────────────────────────────────────────────────────── */
+  .band {
+    padding-block: clamp(3rem, 8vh, 5rem);
+  }
+
+  h2 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+
+  .lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: clamp(1.5rem, 5vw, 4rem);
+    align-items: start;
+  }
+
+  .proof {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .proof li {
+    display: grid;
+    gap: 0.2rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--gold);
+  }
+
+  .value {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .cards,
+  .strip {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .cards {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+
+  .strip {
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  }
+
+  .cards a,
+  .strip a {
+    display: block;
+    height: 100%;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  }
+
+  .cards a:hover,
+  .strip a:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+  }
+
+  .kind {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .cards h3,
+  .strip h3 {
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0.4rem 0;
+  }
+
+  .cards p {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin: 0;
+  }
+
+  .when {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  /* ── Contact ──────────────────────────────────────────────────────────── */
+  .contact .mail {
+    font-family: var(--font-mono);
+    font-size: clamp(1rem, 2.4vw, 1.4rem);
+    margin: 1.5rem 0 0;
+  }
+
+  .elsewhere {
+    display: flex;
+    gap: 1.25rem;
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    font-size: 0.92rem;
+  }
+
+  @media (max-width: 60rem) {
+    .hero {
+      grid-template-columns: 1fr;
+      justify-items: start;
+      gap: 2.5rem;
+      min-height: auto;
+      padding-bottom: 4rem;
+    }
+
+    .hero-photo {
+      justify-self: center;
+      order: -1;
+    }
+
+    .scroll-hint {
+      display: none;
+    }
+
+    .about {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

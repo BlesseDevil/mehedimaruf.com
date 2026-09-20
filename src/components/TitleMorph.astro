@@ -1,0 +1,130 @@
+---
+/**
+ * The big name shrinks into the header as you scroll.
+ *
+ * No markup of its own — it carries the behaviour, and a page opts in by
+ * rendering it and marking its own heading `data-hero-title`. Both the home
+ * page and the CV use it, which is why it does not live inside either of them.
+ *
+ * Rather than guessing the end position, both boxes are measured and the
+ * distance between them is what the transform interpolates over — so the title
+ * lands exactly on the header's copy of the name at any window size, even
+ * though the two columns have nothing to do with each other.
+ *
+ * A page that must not morph at some size says so on the heading itself:
+ * `data-morph-off="(max-width: 60rem)"`. The home page uses that because its
+ * photo stacks above the text on a phone, and the same travel carried the name
+ * straight over the portrait.
+ *
+ * With reduced motion there is no morph: the header mark is simply there.
+ */
+---
+
+<script>
+  function initTitleMorph() {
+    const title = document.querySelector<HTMLElement>("[data-hero-title]");
+    const header = document.querySelector<HTMLElement>("[data-header]");
+    const mark = document.querySelector<HTMLElement>("[data-site-mark]");
+    if (!title || !header || !mark || title.dataset.bound) return;
+    title.dataset.bound = "true";
+
+    // Re-bound with explicit types: TypeScript does not carry the null-check
+    // above into the callbacks below.
+    const heroTitle: HTMLElement = title;
+    const head: HTMLElement = header;
+    const headMark: HTMLElement = mark;
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      header.dataset.titleParked = "";
+      return;
+    }
+
+    let dx = 0;
+    let dy = 0;
+    let endScale = 0.3;
+    let distance = 360;
+    let queued = false;
+
+    /** Sizes at which this page would rather not morph at all. */
+    const off = heroTitle.dataset.morphOff;
+    const stacked = off ? window.matchMedia(off) : null;
+
+    /** Leave the title where it is and give the header the name outright. */
+    function rest() {
+      heroTitle.style.transform = "none";
+      delete heroTitle.dataset.parked;
+      head.dataset.titleParked = "";
+      delete head.dataset.hold;
+    }
+
+    function measure() {
+      if (stacked?.matches) {
+        rest();
+        return;
+      }
+
+      const wasParked = head.dataset.titleParked !== undefined;
+      head.dataset.titleParked = ""; // the mark must be laid out to be measured
+      heroTitle.style.transform = "none";
+
+      const from = heroTitle.getBoundingClientRect();
+      const to = headMark.getBoundingClientRect();
+      const scrolled = window.scrollY;
+
+      distance = Math.max(220, Math.min(420, from.height * 2.2));
+      endScale = Math.min(1, to.height / from.height);
+      dx = to.left - from.left;
+      // The page carries the title up by `distance` on its own; this is what is
+      // left to cover.
+      dy = to.top - (from.top + scrolled) + distance;
+
+      if (!wasParked) delete head.dataset.titleParked;
+      paint();
+    }
+
+    function paint() {
+      queued = false;
+      if (stacked?.matches) {
+        rest();
+        return;
+      }
+
+      const p = Math.min(1, Math.max(0, window.scrollY / distance));
+      const eased = p * p * (3 - 2 * p); // smoothstep, so it settles rather than stops
+
+      heroTitle.style.transform = `translate(${dx * eased}px, ${dy * eased}px) scale(${
+        1 - (1 - endScale) * eased
+      })`;
+
+      if (p > 0.97) {
+        head.dataset.titleParked = "";
+        heroTitle.dataset.parked = "";
+        delete head.dataset.hold;
+      } else {
+        delete head.dataset.titleParked;
+        delete heroTitle.dataset.parked;
+        // The header cannot slide away mid-handover: the title is on its way
+        // into it, and hiding it strands the shrinking name in mid-air.
+        head.dataset.hold = "";
+      }
+    }
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      },
+      { passive: true },
+    );
+
+    window.addEventListener("resize", measure);
+    // Fonts change the metrics, so measure again once they have loaded.
+    document.fonts?.ready.then(measure);
+    measure();
+  }
+
+  initTitleMorph();
+  document.addEventListener("astro:page-load", initTitleMorph);
+</script>

@@ -1,0 +1,828 @@
+---
+import { Image } from "astro:assets";
+import emblem from "../assets/brand/emblem.png";
+import { getProjects, getPosts, BAND_LABELS } from "../lib/content";
+import { EMAILS } from "../config";
+
+/**
+ * The portal: an always-available way out to the rest of the site.
+ *
+ * Trigger — the emblem plus an "Explore" label, fixed on screen at all times and
+ * draggable to whichever corner suits the visitor. The chosen corner is
+ * remembered, so it never has to be moved twice.
+ *
+ * Dialog — a native <dialog>, which brings the focus trap, the inert background
+ * and Escape for free rather than reimplementing all three badly.
+ *
+ * The orb is five soft blobs, each drifting at its own speed and shifting hue
+ * within a crimson-to-gold band. They blend with `screen` on wine-black in Devil
+ * so the overlaps burn white-hot, and with `multiply` on parchment in Blessed so
+ * they read as ink soaking into paper. Uneven radii and mismatched speeds are
+ * what make the rim wobble like something alive.
+ *
+ * Two levels: the hub, and the project worlds. A world with nothing in it is not
+ * offered, and if only one world has anything the second level is skipped
+ * entirely — the Projects card just takes you straight there.
+ */
+
+const projects = await getProjects();
+const posts = await getPosts();
+
+const worlds = (["software", "irl"] as const)
+  .map((band) => ({
+    band,
+    label: BAND_LABELS[band],
+    count: projects.filter((p) => p.data.band === band).length,
+    href: `/projects#${band}`,
+  }))
+  .filter((world) => world.count > 0);
+
+/** With fewer than two worlds there is nothing to choose between. */
+const twoLevel = worlds.length > 1;
+
+const hub = [
+  {
+    key: "cv",
+    label: "Résumé and CV",
+    note: "The short version, and the long one",
+    href: "/resume",
+    show: true,
+  },
+  {
+    key: "projects",
+    label: "Projects",
+    note: `${projects.length} built and run`,
+    href: twoLevel ? null : "/projects",
+    show: projects.length > 0,
+  },
+  {
+    key: "blog",
+    label: "Writing",
+    note: posts.length === 1 ? "1 piece" : `${posts.length} pieces`,
+    href: "/blog",
+    show: posts.length > 0,
+  },
+  {
+    key: "contact",
+    label: "Contact",
+    note: EMAILS.contact,
+    href: `mailto:${EMAILS.contact}`,
+    show: true,
+  },
+  // Last, so the destinations lead and this one closes the grid off.
+  {
+    key: "home",
+    label: "Home",
+    note: "mehedimaruf.com",
+    href: "/",
+    show: true,
+  },
+].filter((card) => card.show);
+---
+
+<div class="trigger-wrap" data-portal-trigger-wrap data-corner="br">
+  <button
+    class="trigger"
+    type="button"
+    data-portal-open
+    aria-haspopup="dialog"
+    aria-label="Explore this site"
+  >
+    <span class="emblem">
+      {/* The same orb as the dialog's, in miniature: the door shows you what is
+          behind it before you open it. Three blobs is enough at this size — the
+          other two would never be told apart. */}
+      <span class="mini-orb" aria-hidden="true">
+        <span style="--x: -52%; --y: -52%; --spin: 5.55s; --ink: var(--portal-ink-1); --r: 90% 95% 85% 105%"></span>
+        <span style="--x: -48%; --y: -50%; --spin: 8.7s; --ink: var(--portal-ink-3); --r: 105% 82% 98% 88%"></span>
+        <span style="--x: -50%; --y: -47%; --spin: 6.9s; --ink: var(--portal-core); --r: 86% 108% 92% 96%"></span>
+      </span>
+      <Image src={emblem} alt="" width={72} height={71} loading="lazy" />
+    </span>
+    <span class="label">Explore <span aria-hidden="true">→</span></span>
+  </button>
+  <p class="drag-hint" data-drag-hint hidden>Drop it in any corner</p>
+</div>
+
+<dialog class="portal" data-portal aria-label="Where to next?">
+  <div class="orb" aria-hidden="true">
+    <span style="--x: -53%; --y: -53%; --spin: 5.55s; --ink: var(--portal-ink-1); --r: 90% 95% 85% 105%"></span>
+    <span style="--x: -47%; --y: -52%; --spin: 8.7s; --ink: var(--portal-ink-2); --r: 105% 82% 98% 88%"></span>
+    <span style="--x: -45%; --y: -50%; --spin: 6.9s; --size: 44vmin; --ink: var(--portal-core); --r: 86% 108% 92% 96%"></span>
+    <span style="--x: -53%; --y: -45%; --spin: 10.8s; --ink: var(--portal-ink-3); --r: 98% 88% 106% 84%"></span>
+    <span style="--x: -55%; --y: -45%; --spin: 9.3s; --ink: var(--portal-ink-2); --r: 92% 100% 82% 110%"></span>
+  </div>
+
+  <button class="close" type="button" data-portal-close aria-label="Close">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+  </button>
+
+  <div class="stage">
+    <div class="skew">
+      <h2 data-portal-title>Teleport to…</h2>
+
+      <ul class="cards" data-level="hub">
+        {
+          hub.map((card) => (
+            <li class:list={[card.key === "home" && "wide"]}>
+              <a
+                href={card.href ?? "#"}
+                data-card={card.key}
+                data-opens-worlds={card.href === null ? "" : undefined}
+              >
+                <span class="card-label">{card.label}</span>
+                <span class="card-note">{card.note}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      {
+        twoLevel && (
+          <ul class="cards" data-level="worlds" hidden>
+            {worlds.map((world) => (
+              <li>
+                <a href={world.href} data-card={world.band}>
+                  <span class="card-label">{world.label}</span>
+                  <span class="card-note">
+                    {world.count} {world.count === 1 ? "project" : "projects"}
+                  </span>
+                </a>
+              </li>
+            ))}
+            <li>
+              <a href="/projects" data-card="all">
+                <span class="card-label">Everything</span>
+                <span class="card-note">All {projects.length} together</span>
+              </a>
+            </li>
+          </ul>
+        )
+      }
+
+      {twoLevel && <button class="back" type="button" data-portal-back hidden>← Back</button>}
+    </div>
+  </div>
+</dialog>
+
+<style>
+  /* ── Trigger ──────────────────────────────────────────────────────────── */
+  .trigger-wrap {
+    position: fixed;
+    z-index: 40;
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    touch-action: none;
+  }
+
+  .trigger-wrap[data-corner="br"] {
+    right: clamp(1rem, 3vw, 2rem);
+    bottom: clamp(1rem, 3vw, 2rem);
+  }
+
+  .trigger-wrap[data-corner="bl"] {
+    left: clamp(1rem, 3vw, 2rem);
+    bottom: clamp(1rem, 3vw, 2rem);
+  }
+
+  .trigger-wrap[data-corner="tr"] {
+    right: clamp(1rem, 3vw, 2rem);
+    top: clamp(4.5rem, 10vh, 6rem);
+  }
+
+  .trigger-wrap[data-corner="tl"] {
+    left: clamp(1rem, 3vw, 2rem);
+    top: clamp(4.5rem, 10vh, 6rem);
+  }
+
+  .trigger-wrap[data-dragging] {
+    transition: none;
+    cursor: grabbing;
+  }
+
+  .trigger {
+    display: grid;
+    justify-items: center;
+    gap: 0.3rem;
+    padding: 0.5rem;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .emblem {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    transition: transform var(--dur) var(--ease);
+  }
+
+  /* The halo: a slow breathing glow so the emblem reads as "alive" without
+     demanding attention. */
+  .emblem::before {
+    content: "";
+    position: absolute;
+    inset: -0.35rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+    animation: portal-halo-pulse 4.5s ease-in-out infinite;
+  }
+
+  /* The orb in miniature, clipped to a disc under the emblem. `isolation`
+     keeps the blend inside this circle instead of reaching the page. */
+  .mini-orb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    isolation: isolate;
+    opacity: 0.85;
+    transition: opacity var(--dur) var(--ease);
+  }
+
+  .mini-orb span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: var(--r);
+    background: var(--ink);
+    mix-blend-mode: var(--portal-blend);
+    box-shadow: inset 0 0 0.9rem 0.3rem var(--portal-rim);
+    transform: translate(var(--x), var(--y));
+    animation:
+      portal-drift var(--spin) linear infinite,
+      portal-shimmer var(--spin) ease-in-out infinite alternate;
+  }
+
+  .trigger:hover .mini-orb,
+  .trigger:focus-visible .mini-orb {
+    opacity: 1;
+  }
+
+  @keyframes portal-halo-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.94); }
+    50% { opacity: 1; transform: scale(1.06); }
+  }
+
+  .emblem :global(img) {
+    position: relative;
+    width: 2.6rem;
+    height: auto;
+  }
+
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color var(--dur) var(--ease);
+  }
+
+  .trigger:hover .emblem,
+  .trigger:focus-visible .emblem {
+    transform: scale(1.08);
+  }
+
+  .trigger:hover .label,
+  .trigger:focus-visible .label {
+    color: var(--accent);
+  }
+
+  /* The rev: a shiver and a flare before the blast into the next page. */
+  .trigger-wrap[data-revving] .emblem {
+    animation: portal-rev 340ms var(--ease);
+  }
+
+  @keyframes portal-rev {
+    0% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-4deg); }
+    50% { transform: scale(1.08) rotate(4deg); }
+    75% { transform: scale(1.14) rotate(-3deg); }
+    100% { transform: scale(1.3) rotate(0deg); }
+  }
+
+  .drag-hint {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--muted);
+    opacity: 0.8;
+  }
+
+  @media print {
+    .trigger-wrap {
+      display: none;
+    }
+  }
+
+  /* ── Dialog ───────────────────────────────────────────────────────────── */
+  .portal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    /* Tinted with the orb's own crimson, not with --accent: in Devil --accent
+       is gold, and a gold wash under a maroon orb is where the yellow cast
+       came from. */
+    background:
+      radial-gradient(
+        circle at 50% 38%,
+        color-mix(in srgb, var(--portal-backdrop) 86%, var(--portal-ink-1)),
+        var(--portal-backdrop) 70%
+      );
+    color: var(--portal-text);
+    /* Blend the blobs against this surface, not against the page behind it. */
+    isolation: isolate;
+  }
+
+  .portal::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+  }
+
+  .portal[open] {
+    animation: portal-fade-in var(--dur-slow) var(--ease);
+  }
+
+  @keyframes portal-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ── Orb ──────────────────────────────────────────────────────────────── */
+  .orb {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .orb span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* Geometry and timing copied from the source: five equal blobs at 70vmin,
+       offset only a few percent from centre so they overlap almost completely,
+       each turning at its own speed (5.55s to 10.8s). The near-total overlap is
+       what makes one wobbling bubble rather than five rings. */
+    width: var(--size, 70vmin);
+    height: var(--size, 70vmin);
+    /* Deliberately not a circle, and a different distortion per blob: uneven
+       radii turning at different speeds are what make the rim wobble. */
+    border-radius: var(--r, 90% 95% 85% 105%);
+    background: var(--ink);
+    mix-blend-mode: var(--portal-blend);
+    /* Her .5em/.2em/.15em at a 20vmin font size. The inset shadow eats the rim,
+       which is what gives each blob its soft edge. */
+    box-shadow:
+      inset 0 0 10vmin 4vmin var(--portal-rim),
+      0 0 3vmin 0 var(--portal-halo);
+    transform: translate(var(--x), var(--y));
+    /* One turn per cycle, with the hue swinging over the same period — in the
+       source both live in a single keyframe, so they stay in step. */
+    animation:
+      portal-drift var(--spin) linear infinite,
+      portal-shimmer var(--spin) ease-in-out infinite alternate;
+    will-change: transform, filter;
+  }
+
+  @keyframes portal-drift {
+    to {
+      transform: translate(var(--x), var(--y)) rotate(1turn);
+    }
+  }
+
+  /* A swell rather than a hue swing. Rotating the hue at all walked crimson
+     towards orange, and under `screen` that lands on mustard — so the blobs
+     keep their colour and only breathe. */
+  @keyframes portal-shimmer {
+    from {
+      filter: saturate(1) brightness(0.96);
+    }
+    to {
+      filter: saturate(1.12) brightness(1.08);
+    }
+  }
+
+  .portal[data-shifting] .orb span {
+    animation-play-state: paused;
+    transform: translate(var(--x), var(--y)) scale(0.86);
+    filter: brightness(1.6);
+    transition: transform 380ms var(--ease), filter 380ms var(--ease);
+  }
+
+  /* ── Stage ────────────────────────────────────────────────────────────── */
+  .stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    padding: 2rem 1.25rem;
+    perspective: 1000px;
+  }
+
+  /* The Star Wars tilt: the cards lean away from the reader. */
+  .skew {
+    transform: rotateX(25deg) translateZ(60px);
+    transform-origin: 50% 100%;
+    display: grid;
+    justify-items: center;
+    gap: 1.5rem;
+    max-width: 34rem;
+    width: 100%;
+  }
+
+  /* The heading sits directly over the orb's hottest point, where cream text on
+     a cream core vanishes. A plate, like the cards have, keeps it readable
+     wherever the blobs happen to drift. */
+  h2 {
+    margin: 0;
+    padding: 0.35rem 1.1rem;
+    border: 1px solid var(--portal-card-border);
+    border-radius: 999px;
+    background: var(--portal-card);
+    backdrop-filter: blur(3px);
+    font-size: clamp(1.25rem, 3vw, 1.7rem);
+    text-align: center;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+  }
+
+  /* An odd last card spans both columns, so the grid always reads as a block
+     rather than leaving an empty corner. Home takes the full width whether the
+     count is odd or even: it is the floor of the hub, not one of the
+     destinations, and a draft post coming or going must not move it. */
+  .cards li:last-child:nth-child(odd),
+  .cards li.wide {
+    grid-column: 1 / -1;
+  }
+
+  /* A full-width card reads as a bar, so its text belongs in the middle. */
+  .cards li:last-child:nth-child(odd) a,
+  .cards li.wide a {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .cards a {
+    display: grid;
+    gap: 0.25rem;
+    height: 100%;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--portal-card-border);
+    border-radius: 0.6rem;
+    background: var(--portal-card);
+    backdrop-filter: blur(3px);
+    color: var(--portal-text);
+    text-decoration: none;
+    transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+
+  .cards a:hover,
+  .cards a:focus-visible {
+    transform: translateY(-4px) scale(1.02);
+    border-color: var(--portal-text);
+  }
+
+  .card-label {
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+
+  .card-note {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    opacity: 0.75;
+  }
+
+  /* Cards sinking into the orb on the way to the next level. */
+  .cards[data-leaving] {
+    animation: portal-sink 340ms var(--ease) forwards;
+  }
+
+  .cards[data-arriving] {
+    animation: portal-rise 380ms var(--ease);
+  }
+
+  @keyframes portal-sink {
+    to { transform: translateZ(-420px) scale(0.2); opacity: 0; }
+  }
+
+  @keyframes portal-rise {
+    from { transform: translateZ(-420px) scale(0.2); opacity: 0; }
+  }
+
+  .back {
+    font: inherit;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--portal-card-border);
+    border-radius: 999px;
+    background: var(--portal-card);
+    color: var(--portal-text);
+    cursor: pointer;
+  }
+
+  .close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--portal-text);
+    cursor: pointer;
+  }
+
+  .close svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .close:hover {
+    background: var(--portal-card);
+  }
+
+  @media (max-width: 40rem) {
+    .cards {
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+    }
+
+    .skew {
+      /* Less tilt on a phone: the same angle eats the height the cards need. */
+      transform: rotateX(12deg) translateZ(30px);
+      gap: 1rem;
+    }
+
+    .orb span {
+      width: 96vmin;
+      height: 96vmin;
+    }
+
+    .label {
+      display: none; /* the emblem alone on a small screen */
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .orb span,
+    .mini-orb span,
+    .emblem::before {
+      animation: none;
+    }
+
+    .cards[data-leaving],
+    .cards[data-arriving] {
+      animation: none;
+    }
+
+    .portal[open] {
+      animation: none;
+    }
+  }
+</style>
+
+<script>
+  const CORNER_KEY = "mm-portal-corner";
+  const DRAG_THRESHOLD = 5; // px — below this a pointer-up is a click, not a drag
+
+  type Corner = "br" | "bl" | "tr" | "tl";
+
+  function initPortal() {
+    const dialog = document.querySelector<HTMLDialogElement>("[data-portal]");
+    const wrap = document.querySelector<HTMLElement>("[data-portal-trigger-wrap]");
+    const trigger = document.querySelector<HTMLButtonElement>("[data-portal-open]");
+    if (!dialog || !wrap || !trigger || wrap.dataset.bound) return;
+    wrap.dataset.bound = "true";
+
+    // TypeScript does not carry the null-check above into the callbacks below,
+    // so the checked element is re-bound once, explicitly typed.
+    const portal: HTMLDialogElement = dialog;
+    const door: HTMLElement = wrap;
+
+    const title = portal.querySelector<HTMLElement>("[data-portal-title]")!;
+    const hub = portal.querySelector<HTMLElement>('[data-level="hub"]')!;
+    const worlds = portal.querySelector<HTMLElement>('[data-level="worlds"]');
+    const back = portal.querySelector<HTMLButtonElement>("[data-portal-back]");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    let level: "hub" | "worlds" = "hub";
+
+    /* ── Which corner does the trigger live in ──────────────────────────── */
+    try {
+      const saved = localStorage.getItem(CORNER_KEY);
+      if (saved === "br" || saved === "bl" || saved === "tr" || saved === "tl") {
+        wrap.dataset.corner = saved;
+      }
+    } catch {
+      /* storage blocked — the default corner is fine */
+    }
+
+    /* ── Drag to move it ────────────────────────────────────────────────── */
+    let dragging = false;
+    let moved = false;
+    let suppressClick = false;
+    let startX = 0;
+    let startY = 0;
+
+    trigger.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      dragging = true;
+      moved = false;
+      startX = event.clientX;
+      startY = event.clientY;
+      trigger.setPointerCapture(event.pointerId);
+    });
+
+    trigger.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+      moved = true;
+      wrap.dataset.dragging = "";
+      // Follow the finger exactly while held; the corner is chosen on release.
+      wrap.style.left = `${event.clientX - wrap.offsetWidth / 2}px`;
+      wrap.style.top = `${event.clientY - wrap.offsetHeight / 2}px`;
+      wrap.style.right = "auto";
+      wrap.style.bottom = "auto";
+    });
+
+    const endDrag = (event: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      delete wrap.dataset.dragging;
+
+      // Opening is handled by the click event, not here: a click is what
+      // keyboards and assistive technology actually fire, and a pointer-only
+      // path would leave them with a button that does nothing.
+      if (!moved) return;
+
+      // A drag must not also count as a click on the way up.
+      suppressClick = true;
+      window.setTimeout(() => (suppressClick = false), 0);
+
+      // Snap to whichever corner it was dropped nearest.
+      const corner: Corner = `${event.clientY < window.innerHeight / 2 ? "t" : "b"}${
+        event.clientX < window.innerWidth / 2 ? "l" : "r"
+      }` as Corner;
+
+      wrap.style.left = wrap.style.top = wrap.style.right = wrap.style.bottom = "";
+      wrap.dataset.corner = corner;
+      try {
+        localStorage.setItem(CORNER_KEY, corner);
+      } catch {
+        /* storage blocked — it will sit in the default corner next visit */
+      }
+    };
+
+    trigger.addEventListener("pointerup", endDrag);
+    trigger.addEventListener("pointercancel", () => {
+      dragging = false;
+      delete wrap.dataset.dragging;
+    });
+
+    trigger.addEventListener("click", () => {
+      if (suppressClick) return;
+      // While the portal is open the door is the way back out of it.
+      if (portal.open) portal.close();
+      else open();
+    });
+
+    /* ── Opening, closing, levels ───────────────────────────────────────── */
+    function open() {
+      showLevel("hub", false);
+      portal.showModal();
+      // A modal dialog sits in the top layer, above everything on the page —
+      // including the door itself. Moving the trigger inside the dialog keeps
+      // it visible and on top, and since it is position:fixed it does not move
+      // a pixel. It goes back to the body on close.
+      portal.append(door);
+    }
+
+    portal.addEventListener("close", () => document.body.append(door));
+
+    function showLevel(next: "hub" | "worlds", animate = true) {
+      if (!worlds) next = "hub";
+      const leaving = level === "hub" ? hub : worlds!;
+      const arriving = next === "hub" ? hub : worlds!;
+      level = next;
+
+      title.textContent = next === "hub" ? "Teleport to…" : "Which kind of work?";
+      if (back) back.hidden = next === "hub";
+
+      if (!animate || reduced.matches) {
+        leaving.hidden = leaving !== arriving;
+        arriving.hidden = false;
+        return;
+      }
+
+      // Cards fall into the orb, the orb pulses, then the new set rises out.
+      leaving.dataset.leaving = "";
+      portal.dataset.shifting = "";
+
+      window.setTimeout(() => {
+        delete leaving.dataset.leaving;
+        if (leaving !== arriving) leaving.hidden = true;
+        arriving.hidden = false;
+        arriving.dataset.arriving = "";
+        delete portal.dataset.shifting;
+        window.setTimeout(() => delete arriving.dataset.arriving, 400);
+      }, 340);
+    }
+
+    portal.addEventListener("click", (event) => {
+      const target = event.target as Element;
+      if (target.closest("[data-portal-trigger-wrap]")) return; // the door handles itself
+
+      if (target.closest("[data-portal-close]")) {
+        portal.close();
+        return;
+      }
+
+      if (target.closest("[data-portal-back]")) {
+        showLevel("hub");
+        return;
+      }
+
+      const card = target.closest<HTMLAnchorElement>("[data-card]");
+      if (!card) return;
+
+      if (card.hasAttribute("data-opens-worlds")) {
+        event.preventDefault();
+        showLevel("worlds");
+        return;
+      }
+
+      // Leaving for a real page: rev the emblem, flare the orb, then go.
+      if (card.protocol === "mailto:" || reduced.matches) return;
+      event.preventDefault();
+      wrap.dataset.revving = "";
+      portal.dataset.shifting = "";
+      window.setTimeout(() => {
+        window.location.href = card.href;
+      }, 420);
+    });
+
+    // Escape at the second level steps back rather than closing outright.
+    // Both paths are handled: `cancel` is what a browser fires for its own close
+    // request, and the keydown is the belt-and-braces version for environments
+    // where that request never arrives.
+    portal.addEventListener("cancel", (event) => {
+      if (level !== "hub") {
+        event.preventDefault();
+        showLevel("hub");
+      }
+    });
+
+    portal.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (level === "hub") portal.close();
+      else showLevel("hub");
+    });
+
+    // Clicking the backdrop (outside the stage) closes it.
+    portal.addEventListener("pointerdown", (event) => {
+      if (event.target === dialog) portal.close();
+    });
+  }
+
+  initPortal();
+  document.addEventListener("astro:page-load", initPortal);
+</script>

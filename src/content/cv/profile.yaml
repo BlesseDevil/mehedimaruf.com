@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Who you are, in one file. Everything here is PUBLIC — it renders on the home
+# page, the résumé and the CV. Nothing private belongs in this file: no phone
+# number, no date of birth, no street address, no referees.
+#
+# Edit the text, save, and the site updates. Leave a field blank (or delete the
+# line) and the site simply does not render it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Mehedi Hasan Maruf
+
+# The small spaced-out line above your name on the home page.
+positioning:
+  - Operations
+  - Research
+  - Language data
+
+# One sentence under your name.
+role: Banking operations, project management, and research and language data.
+
+# Optional. A motto or quote. Delete the line and the block disappears.
+motto: ""
+
+# City/country only. Keep the street address out of this file.
+location: Bangladesh
+
+# The home page "About" paragraph.
+about: >-
+  I work where language, operations and data meet. I have run a bank's front
+  office, delivered national-scale events, and validated the language data that
+  Bangla language models are trained on. I also build small tools — mostly for
+  Windows and the browser — to take the tedious parts out of my own work.
+
+# The four numbers beside the About paragraph. Edit freely; these are yours to
+# frame however you want.
+proofPoints:
+  - value: "289k+"
+    label: Bangla data items validated
+  - value: "BDT 50M+"
+    label: Event projects coordinated
+  - value: "30k+"
+    label: Community members managed
+  - value: "60+"
+    label: Team members led
+
+languages:
+  - name: Bangla
+    level: Native
+  - name: English
+    level: Fluent
+
+links:
+  - label: GitHub
+    href: https://github.com/BlesseDevil
+  - label: LinkedIn
+    href: https://www.linkedin.com/in/mehedimaruf

@@ -1,0 +1,138 @@
+---
+/**
+ * A ring that trails the cursor and swells over anything clickable.
+ *
+ * Pointer devices only, and off entirely when the visitor asks for reduced
+ * motion — a lagging object that chases the cursor is exactly the kind of
+ * movement that setting exists to stop.
+ *
+ * The animation loop parks itself once the ring has caught up, so an idle page
+ * costs nothing.
+ */
+---
+
+<div class="ring" data-cursor-ring aria-hidden="true"></div>
+
+<style>
+  .ring {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 3rem;
+    height: 3rem;
+    margin: -1.5rem 0 0 -1.5rem;
+    border: 1.5px solid var(--gold);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 60;
+    opacity: 0;
+    transition:
+      opacity 250ms var(--ease),
+      width 180ms var(--ease),
+      height 180ms var(--ease),
+      margin 180ms var(--ease),
+      background 180ms var(--ease),
+      border-color 180ms var(--ease);
+    will-change: transform;
+  }
+
+  .ring[data-visible] {
+    opacity: 0.85;
+  }
+
+  /* Over a link or button: bigger, softer, filled. */
+  .ring[data-active] {
+    width: 4.25rem;
+    height: 4.25rem;
+    margin: -2.125rem 0 0 -2.125rem;
+    background: var(--gold-soft);
+    border-color: var(--accent);
+  }
+
+  @media (pointer: coarse) {
+    .ring {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const INTERACTIVE = "a, button, [role='button'], summary, input, select, textarea, label";
+
+  function initCursorRing() {
+    const ring = document.querySelector<HTMLElement>("[data-cursor-ring]");
+    if (!ring) return;
+
+    /**
+     * These are checked on every move rather than once at startup.
+     *
+     * The old version returned early if the pointer was coarse when the script
+     * ran, and never looked again — so a laptop with a touchscreen, or a window
+     * that started in a mobile emulation mode, killed the ring for the rest of
+     * the page's life even after a mouse appeared. That is the disappearance
+     * that was hard to reproduce: it depends on what the device reported at
+     * load, not on what you are using now.
+     */
+    const fine = window.matchMedia("(pointer: fine)");
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const allowed = () => fine.matches && !still.matches;
+
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let x = targetX;
+    let y = targetY;
+    let running = false;
+
+    const step = () => {
+      // Ease towards the pointer. 0.1 trails noticeably, which is the point:
+      // it matches the lag on satnaing.dev rather than sticking to the cursor.
+      x += (targetX - x) * 0.1;
+      y += (targetY - y) * 0.1;
+      ring.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+
+      if (Math.abs(targetX - x) < 0.2 && Math.abs(targetY - y) < 0.2) {
+        running = false; // caught up — stop burning frames until it moves again
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+
+    const wake = () => {
+      if (running) return;
+      running = true;
+      requestAnimationFrame(step);
+    };
+
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        if (!allowed()) {
+          delete ring.dataset.visible;
+          return;
+        }
+        targetX = event.clientX;
+        targetY = event.clientY;
+        ring.dataset.visible = "";
+        if (event.target instanceof Element && event.target.closest(INTERACTIVE)) {
+          ring.dataset.active = "";
+        } else {
+          delete ring.dataset.active;
+        }
+        wake();
+      },
+      { passive: true },
+    );
+
+    document.addEventListener("pointerleave", () => delete ring.dataset.visible);
+    window.addEventListener("blur", () => delete ring.dataset.visible);
+  }
+
+  initCursorRing();
+  document.addEventListener("astro:page-load", initCursorRing);
+</script>

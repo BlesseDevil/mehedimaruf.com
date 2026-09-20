@@ -1,0 +1,809 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import { existsSync } from "node:fs";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionNav from "./SectionNav.astro";
+import Spotlight from "./Spotlight.astro";
+import TitleMorph from "./TitleMorph.astro";
+import { profile, skills } from "../lib/site-data";
+import { byRecency, forView, formatRange, formatPoint } from "../lib/cv";
+import { EMAILS, SITE } from "../config";
+
+/**
+ * One component renders both /resume (short) and /cv (full) from the same
+ * content. `view` decides only which entries are shown — never which facts
+ * exist — so the two pages can never drift apart.
+ */
+interface Props {
+  view: "resume" | "cv";
+}
+
+const { view } = Astro.props;
+const isResume = view === "resume";
+
+/** Load a CV collection, filter to the view, sort newest first, render bodies. */
+async function section<C extends "experience" | "education" | "research" | "training" | "awards" | "volunteer" | "community">(
+  name: C,
+) {
+  const entries = byRecency(forView(await getCollection(name), view));
+  return Promise.all(
+    entries.map(async (entry) => ({
+      ...(entry as CollectionEntry<C>),
+      Body: (await render(entry)).Content,
+    })),
+  );
+}
+
+const experience = await section("experience");
+const education = await section("education");
+const research = await section("research");
+const training = await section("training");
+const awards = await section("awards");
+const volunteer = await section("volunteer");
+const community = await section("community");
+
+/** Published elsewhere: blog entries that link out to their publication. */
+const publications = (await getCollection("blog"))
+  .filter((entry) => entry.data.external && !entry.data.draft)
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const skillGroups = isResume ? skills.groups.filter((g) => g.resume) : skills.groups;
+
+/** A PDF button only appears if you have actually dropped a PDF in. */
+const pdfName = isResume ? "Mehedi-Hasan-Maruf-Resume.pdf" : "Mehedi-Hasan-Maruf-CV.pdf";
+const pdfHref = existsSync(`public/cv/${pdfName}`) ? `/cv/${pdfName}` : null;
+
+// Sections with nothing in them are dropped from the page and from the nav, so
+// the résumé never shows an empty heading.
+const sections = [
+  { id: "about", label: "About", show: true },
+  { id: "experience", label: "Experience", show: experience.length > 0 },
+  { id: "education", label: "Education", show: education.length > 0 },
+  { id: "skills", label: "Skills", show: skillGroups.length > 0 },
+  { id: "research", label: "Research", show: research.length > 0 },
+  { id: "publications", label: "Publications", show: publications.length > 0 },
+  { id: "training", label: "Training", show: training.length > 0 },
+  { id: "awards", label: "Awards", show: awards.length > 0 },
+  { id: "volunteer", label: "Volunteer", show: volunteer.length > 0 },
+  { id: "community", label: "Community", show: community.length > 0 },
+].filter((s) => s.show);
+
+const title = isResume ? "Résumé" : "CV";
+const description = isResume
+  ? `A one-page résumé for ${profile.name} — ${profile.role}`
+  : `The full CV of ${profile.name} — ${profile.role}`;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  markLabel={profile.name}
+  morph
+  headMail={EMAILS.cv}
+>
+  <Spotlight />
+  <TitleMorph />
+
+  <div class="cv">
+    <header class="side">
+      {/* Outside the sticky box on purpose: this is the part that scrolls
+          away and shrinks into the header bar, and a scrolling container
+          would clip it on its way out. */}
+      <div class="side-top">
+        <h1 data-hero-title><a href="/">{profile.name}</a></h1>
+        <a class="mail" href={`mailto:${EMAILS.cv}`}>{EMAILS.cv}</a>
+      </div>
+
+      <div class="side-inner">
+        <p class="role">{profile.role}</p>
+        {profile.location && <p class="where">{profile.location}</p>}
+
+        {/* One row: which version, and how to take it away. */}
+        <div class="controls">
+          <div class="views" role="group" aria-label="Which version">
+            <a href="/resume" aria-current={isResume ? "page" : undefined}>Résumé</a>
+            <a href="/cv" aria-current={!isResume ? "page" : undefined}>Full CV</a>
+          </div>
+          {
+            pdfHref ? (
+              <a class="button" href={pdfHref} download>
+                Download PDF
+              </a>
+            ) : (
+              <button class="button" type="button" data-print>
+                Save as PDF
+              </button>
+            )
+          }
+        </div>
+
+        <ul class="links">
+          {
+            profile.links.map((link) => (
+              <li>
+                <a href={link.href} rel="me noopener" target="_blank">
+                  {link.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+
+        <SectionNav sections={sections} />
+      </div>
+    </header>
+
+    <div class="mobile-nav">
+      <SectionNav sections={sections} variant="bar" />
+    </div>
+
+    <main class="body" data-pagefind-body>
+      {/* Both pages lead with the same name, so search results need telling apart. */}
+      <span class="sr-only" data-pagefind-meta={`title:${profile.name} — ${title}`} />
+      <section id="about" aria-labelledby="about-h">
+        <h2 id="about-h">About</h2>
+        <p class="lede">{profile.about}</p>
+        {
+          profile.languages.length > 0 && (
+            <p class="languages">
+              {profile.languages.map((l) => `${l.name} (${l.level.toLowerCase()})`).join(" · ")}
+            </p>
+          )
+        }
+      </section>
+
+      {
+        experience.length > 0 && (
+          <section id="experience" aria-labelledby="experience-h">
+            <h2 id="experience-h">Experience</h2>
+            {experience.map((entry) => (
+              <article class="entry">
+                <p class="when">{formatRange(entry.data.start, entry.data.end)}</p>
+                <div class="what">
+                  <h3>
+                    {entry.data.role}
+                    <span class="at"> · </span>
+                    {entry.data.orgUrl ? (
+                      <a href={entry.data.orgUrl} target="_blank" rel="noopener">
+                        {entry.data.org}
+                      </a>
+                    ) : (
+                      entry.data.org
+                    )}
+                  </h3>
+                  {entry.data.location && <p class="where-small">{entry.data.location}</p>}
+                  <div class="prose">
+                    <entry.Body />
+                  </div>
+                  {entry.data.tags.length > 0 && (
+                    <ul class="tags">
+                      {entry.data.tags.map((tag) => (
+                        <li>{tag}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        education.length > 0 && (
+          <section id="education" aria-labelledby="education-h">
+            <h2 id="education-h">Education</h2>
+            {education.map((entry) => (
+              <article class="entry">
+                <p class="when">{formatPoint(entry.data.end)}</p>
+                <div class="what">
+                  <h3>{entry.data.degree}</h3>
+                  <p class="where-small">
+                    {entry.data.institution}
+                    {entry.data.detail && <span class="detail"> · {entry.data.detail}</span>}
+                  </p>
+                  <div class="prose">
+                    <entry.Body />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        skillGroups.length > 0 && (
+          <section id="skills" aria-labelledby="skills-h">
+            <h2 id="skills-h">Skills</h2>
+            <div class="skills">
+              {skillGroups.map((group) => (
+                <div class="skill-group">
+                  <h3>{group.name}</h3>
+                  <ul>
+                    {group.items.map((item) => (
+                      <li>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        research.length > 0 && (
+          <section id="research" aria-labelledby="research-h">
+            <h2 id="research-h">Research</h2>
+            {research.map((entry) => (
+              <article class="entry">
+                <p class="when">{formatPoint(entry.data.year)}</p>
+                <div class="what">
+                  <h3>
+                    {entry.data.url ? (
+                      <a href={entry.data.url} target="_blank" rel="noopener">
+                        {entry.data.title}
+                      </a>
+                    ) : (
+                      entry.data.title
+                    )}
+                  </h3>
+                  {(entry.data.role || entry.data.venue) && (
+                    <p class="where-small">
+                      {[entry.data.role, entry.data.venue].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  <div class="prose">
+                    <entry.Body />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        publications.length > 0 && (
+          <section id="publications" aria-labelledby="publications-h">
+            <h2 id="publications-h">Publications</h2>
+            {publications.map((entry) => (
+              <article class="entry">
+                <p class="when">{entry.data.date.getFullYear()}</p>
+                <div class="what">
+                  <h3>
+                    <a href={entry.data.external!.url} target="_blank" rel="noopener">
+                      {entry.data.title}
+                    </a>
+                  </h3>
+                  <p class="where-small">{entry.data.external!.publication}</p>
+                  <p class="prose">{entry.data.description}</p>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        training.length > 0 && (
+          <section id="training" aria-labelledby="training-h">
+            <h2 id="training-h">Training</h2>
+            {training.map((entry) => (
+              <article class="entry">
+                <p class="when">{formatPoint(entry.data.date)}</p>
+                <div class="what">
+                  <h3>{entry.data.title}</h3>
+                  <p class="where-small">
+                    {entry.data.org}
+                    {entry.data.detail && <span class="detail"> · {entry.data.detail}</span>}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        awards.length > 0 && (
+          <section id="awards" aria-labelledby="awards-h">
+            <h2 id="awards-h">Awards</h2>
+            {awards.map((entry) => (
+              <article class="entry compact">
+                <p class="when">{formatPoint(entry.data.year)}</p>
+                <div class="what">
+                  <h3>{entry.data.title}</h3>
+                  {entry.data.detail && <p class="where-small">{entry.data.detail}</p>}
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        volunteer.length > 0 && (
+          <section id="volunteer" aria-labelledby="volunteer-h">
+            <h2 id="volunteer-h">Volunteer</h2>
+            {volunteer.map((entry) => (
+              <article class="entry">
+                <p class="when">{formatRange(entry.data.start, entry.data.end)}</p>
+                <div class="what">
+                  <h3>
+                    {entry.data.role}
+                    <span class="at"> · </span>
+                    {entry.data.org}
+                  </h3>
+                  <div class="prose">
+                    <entry.Body />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      {
+        community.length > 0 && (
+          <section id="community" aria-labelledby="community-h">
+            <h2 id="community-h">Community</h2>
+            {community.map((entry) => (
+              <article class="entry">
+                <p class="when">
+                  {entry.data.start ? formatRange(entry.data.start, entry.data.end ?? "present") : ""}
+                </p>
+                <div class="what">
+                  <h3>{entry.data.title}</h3>
+                  <div class="prose">
+                    <entry.Body />
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )
+      }
+
+      <p class="references">References available on request.</p>
+      <p class="printed">{SITE.url} · {EMAILS.cv}</p>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .cv {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 32fr) minmax(0, 68fr);
+    gap: clamp(1.5rem, 5vw, 4rem);
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 2.5rem) 6rem;
+  }
+
+  /* Only below the two-column breakpoint; above it the column nav is enough. */
+  .mobile-nav {
+    display: none;
+  }
+
+  /* The name and the address, which scroll away normally. */
+  .side-top {
+    display: flex;
+    flex-direction: column;
+    padding-top: 1.5rem;
+  }
+
+  /* Sticky, and bounded by the viewport: with ten sections plus the actions the
+     column was taller than the screen, so its lower half — the section list —
+     could never be seen. It scrolls within itself instead of being cut off. */
+  .side-inner {
+    position: sticky;
+    top: 5.5rem;
+    max-height: calc(100dvh - 6rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* The bar is only a fallback for short windows, and a grey track down the
+       middle of the page is louder than the thing it is scrolling. */
+    scrollbar-width: none;
+    transition: mask-image var(--dur) var(--ease);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-block: 1.25rem 1.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .side-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* With the bar gone, something still has to say "there is more below" on a
+     window too short for the whole list. The last line fades out instead —
+     set only when the column actually overflows, so a column that fits keeps
+     its last section at full strength. */
+  .side-inner[data-overflow] {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent);
+  }
+
+  h1 {
+    font-size: clamp(2rem, 3.5vw, 2.9rem);
+    letter-spacing: -0.02em;
+    margin: 0;
+    /* It shrinks into the header bar as you scroll, so it has to ride above
+       the header's own background until the handover is done. */
+    position: relative;
+    z-index: 31;
+    transform-origin: left top;
+    will-change: transform;
+  }
+
+  h1[data-parked] {
+    visibility: hidden;
+  }
+
+  h1 a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  h1 a:hover {
+    color: var(--accent);
+  }
+
+  .role {
+    margin: 0.4rem 0 0;
+    color: var(--muted);
+    max-width: 26ch;
+  }
+
+  .where,
+  .where-small {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .views {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    width: max-content;
+  }
+
+  .views a {
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: var(--muted);
+  }
+
+  .views a[aria-current="page"] {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  /* One wrapping row: the version toggle, and the PDF beside it. Stacked,
+     these ate the vertical space the section list needed. */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .button {
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .button:hover {
+    background: var(--accent-soft);
+  }
+
+  /* Directly under the name and sized to be read from across the room: on a CV
+     the address is the point of the page, not a footnote to it. */
+  .mail {
+    font-family: var(--font-mono);
+    font-size: clamp(0.88rem, 1.35vw, 1.05rem);
+    letter-spacing: -0.01em;
+    color: var(--accent);
+    text-decoration: none;
+    width: max-content;
+    max-width: 100%;
+    margin-top: 0.55rem;
+    border-bottom: 1px solid transparent;
+  }
+
+  .mail:hover {
+    border-bottom-color: var(--accent);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.8rem;
+  }
+
+  .body {
+    padding-block: 3rem;
+  }
+
+  section {
+    margin-bottom: 3rem;
+    scroll-margin-top: 4rem;
+  }
+
+  h2 {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+
+  .lede {
+    font-size: 1.1rem;
+    max-width: var(--measure);
+    margin-top: 0;
+  }
+
+  .languages {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .entry.compact {
+    margin-bottom: 1rem;
+  }
+
+  .when {
+    margin: 0;
+    padding-top: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .what h3 {
+    font-size: 1.05rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+  }
+
+  .at {
+    color: var(--muted);
+  }
+
+  .detail {
+    color: var(--muted);
+  }
+
+  .prose :global(p),
+  .prose :global(ul) {
+    margin: 0.5rem 0 0;
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+
+  /* Tailwind's reset strips list markers; CV bullets need them back. */
+  .prose :global(ul) {
+    list-style: disc;
+    padding-left: 1.15rem;
+  }
+
+  .prose :global(li) {
+    margin-bottom: 0.35rem;
+  }
+
+  .prose :global(li)::marker {
+    color: var(--gold);
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+  }
+
+  .tags li {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .skills {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1.5rem;
+  }
+
+  .skill-group h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .skill-group ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .references {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-style: italic;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  /* Only shown on paper — a printed page loses the URL bar. */
+  .printed {
+    display: none;
+  }
+
+  @media (max-width: 60rem) {
+    .cv {
+      /* minmax(0, 1fr), not 1fr: a `1fr` track is floored at its content's
+         min-content width, and the chip bar's row of section names is far
+         wider than a phone. That floor was pushing the whole page to 876px at
+         375px and giving the site a horizontal scroll. */
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mobile-nav {
+      display: block;
+      position: sticky;
+      top: 3.5rem;
+      z-index: 20;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(8px);
+    }
+
+    /* The column's own copy would duplicate it. */
+    .side-inner :global(.section-nav) {
+      display: none;
+    }
+
+    .side-inner {
+      position: static;
+      padding-bottom: 0;
+    }
+
+    .body {
+      padding-top: 1rem;
+    }
+
+    .entry {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+
+    .when {
+      padding-top: 0;
+    }
+  }
+
+  @media print {
+    .cv {
+      display: block;
+      padding: 0;
+      max-width: none;
+    }
+
+    .side-inner {
+      position: static;
+      padding-block: 0 1rem;
+    }
+
+    .views,
+    .controls {
+      display: none;
+    }
+
+    .body {
+      padding-block: 0;
+    }
+
+    section {
+      margin-bottom: 1.2rem;
+      break-inside: avoid;
+    }
+
+    .entry {
+      margin-bottom: 0.9rem;
+      break-inside: avoid;
+    }
+
+    .printed {
+      display: block;
+      font-size: 0.75rem;
+      color: #555;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+  }
+</style>
+
+<script>
+  function initPrint() {
+    for (const button of document.querySelectorAll("[data-print]")) {
+      if ((button as HTMLElement).dataset.bound) continue;
+      (button as HTMLElement).dataset.bound = "true";
+      button.addEventListener("click", () => window.print());
+    }
+  }
+
+  /**
+   * Flag the sticky column when it is taller than the window, which is the
+   * only time the fade at its foot should be there. Re-checked on resize,
+   * because the window is what decides it.
+   */
+  function initSideOverflow() {
+    const side = document.querySelector<HTMLElement>(".side-inner");
+    if (!side) return;
+
+    const check = () => {
+      if (side.scrollHeight - side.clientHeight > 2) side.dataset.overflow = "";
+      else delete side.dataset.overflow;
+    };
+
+    if (!side.dataset.overflowBound) {
+      side.dataset.overflowBound = "true";
+      new ResizeObserver(check).observe(side);
+      window.addEventListener("resize", check);
+    }
+    check();
+  }
+
+  initPrint();
+  initSideOverflow();
+  document.addEventListener("astro:page-load", () => {
+    initPrint();
+    initSideOverflow();
+  });
+</script>
