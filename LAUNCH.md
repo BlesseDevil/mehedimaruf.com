@@ -197,8 +197,6 @@ These are known gaps, not surprises:
 
 - The contact form falls back to the email address until the Worker is
   deployed (`CONTACT.endpoint` is empty). See `contact-worker/README.md`.
-- The op-ed under Writing is `draft: true` pending its real publication date,
-  so the Writing card is absent from the portal until then.
 - No CV PDFs in `public/cv/` yet — the page offers Print / Save as PDF instead.
   Anything dropped there must be a redacted variant.
 - giscus comments render nothing until the repo IDs are filled in.

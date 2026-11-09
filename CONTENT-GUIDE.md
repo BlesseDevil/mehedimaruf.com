@@ -210,8 +210,8 @@ below:
 | `title` | Required | Project name. | `title: Billing and invoicing app` |
 | `summary` | Required | One-sentence summary shown in listings. | `summary: A React/TypeScript billing application...` |
 | `band` | Required | `software` (has code) or `irl` (real-world delivery work). | `band: software` |
-| `type` | Required | One of `windows-app`, `web-tool`, `userscript`, `android`, `library`, `event`, `research`, `operations`. | `type: web-tool` |
-| `date` | Required | Sort key and "Recently" strip. `YYYY-MM-DD`; use `-01-01` if only the year is known. | `date: 2025-01-01` |
+| `type` | Required | One of `windows-app`, `desktop-app`, `web-tool`, `userscript`, `android`, `library`, `event`, `research`, `operations`. | `type: web-tool` |
+| `date` | Required | Sort key and "Recent" strip. `YYYY-MM-DD`; use `-01-01` if only the year is known. | `date: 2025-01-01` |
 | `updated` | Optional | Last-updated date, same format; used for sorting instead of `date` when present. | `updated: 2025-06-01` |
 | `period` | Optional | A human-readable stretch of time, mainly for `irl` entries. | `period: "2022–2023"` |
 | `repo` | Optional | Link to public source code. | `repo: https://github.com/example/example` |
@@ -221,7 +221,7 @@ below:
 | `sourcePrivate` | Optional (default `false`) | Shows a "source private" badge instead of a repo link. | `sourcePrivate: true` |
 | `stack` | Optional (default empty) | Technologies used. | `stack: ["React", "TypeScript"]` |
 | `cover` | Optional | Cover image, placed beside the file in the same folder. | `cover: ./cover.jpg` |
-| `featured` | Optional (default `false`) | Shows the project more prominently. | `featured: true` |
+| `featured` | Optional (default `false`) | Pins the project to the front of its tab in the home page "Featured" section. | `featured: true` |
 | `draft` | Optional (default `false`) | Hides the entry from a published build. | `draft: true` |
 
 ### blog
@@ -235,7 +235,7 @@ below:
 | `tags` | Optional (default empty) | Topic labels. | `tags: ["Policy", "Cryptocurrency"]` |
 | `lang` | Optional (default `en`) | `en` or `bn` — `bn` switches the page to the Bangla font. | `lang: bn` |
 | `cover` | Optional | Cover image, placed beside the file in the same folder. | `cover: ./cover.jpg` |
-| `featured` | Optional (default `false`) | Shows the post more prominently. | `featured: true` |
+| `featured` | Optional (default `false`) | Pins the post to the front of the Writing tab in the home page "Featured" section, with a "Pinned" mark. | `featured: true` |
 | `draft` | Optional (default `false`) | Hides the entry from a published build. | `draft: true` |
 | `external` | Optional | Marks a post published elsewhere: `url` and `publication`. Omit entirely for an ordinary post written for this site. | see block below |
 

@@ -34,6 +34,7 @@ export const postHref = (post: CollectionEntry<"blog">) =>
 /** Human labels for the project `type` enum, used on cards and filters. */
 export const TYPE_LABELS: Record<CollectionEntry<"projects">["data"]["type"], string> = {
   "windows-app": "Windows app",
+  "desktop-app": "Desktop app",
   "web-tool": "Web tool",
   userscript: "Userscript",
   android: "Android",

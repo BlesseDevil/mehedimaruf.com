@@ -12,10 +12,16 @@
  */
 interface Props {
   sections: { id: string; label: string }[];
+  /**
+   * Other pages, listed after the sections. Without these the
+   * navigator only moved around the page it was on, and the home page had no
+   * visible way to reach Projects or Writing.
+   */
+  pages?: { href: string; label: string }[];
   variant?: "column" | "rail" | "bar";
 }
 
-const { sections, variant = "column" } = Astro.props;
+const { sections, pages = [], variant = "column" } = Astro.props;
 ---
 
 <nav class:list={["section-nav", variant]} aria-label="Sections" data-section-nav>
@@ -26,6 +32,17 @@ const { sections, variant = "column" } = Astro.props;
           <a href={`#${section.id}`} data-nav-link={section.id}>
             <span class="line" aria-hidden="true" />
             <span class="label">{section.label}</span>
+          </a>
+        </li>
+      ))
+    }
+    {
+      pages.map((page, index) => (
+        <li class:list={["page", index === 0 && "first-page"]}>
+          <a href={page.href}>
+            <span class="line" aria-hidden="true" />
+            <span class="label">{page.label}</span>
+            <span class="arrow" aria-hidden="true">→</span>
           </a>
         </li>
       ))
@@ -84,6 +101,97 @@ const { sections, variant = "column" } = Astro.props;
   a[aria-current="true"] .line {
     width: 3.25rem;
     background: var(--accent);
+  }
+
+  /* Links to other pages look exactly like the sections until
+     the last section (Contact) is reached. There the reading is over and the
+     next move is to another page, so they open out into buttons. */
+  .page a {
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    transition:
+      color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease),
+      background var(--dur) var(--ease),
+      padding var(--dur) var(--ease),
+      margin var(--dur) var(--ease);
+  }
+
+  /* data-at-end is set by the script once the last section is on screen. */
+  .section-nav[data-at-end] .first-page a,
+  .section-nav[data-at-end] .page:not(.first-page) a {
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.8rem;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .section-nav[data-at-end] .first-page a:hover,
+  .section-nav[data-at-end] .page:not(.first-page) a:hover {
+    background: var(--accent-soft);
+  }
+
+  /* The line folds away rather than vanishing, so the label slides into the
+     button instead of jumping. The negative margin takes back the flex gap. */
+  .page .line {
+    transition:
+      width var(--dur) var(--ease),
+      margin var(--dur) var(--ease),
+      opacity var(--dur) var(--ease),
+      background var(--dur) var(--ease);
+  }
+
+  .section-nav[data-at-end] .first-page .line,
+  .section-nav[data-at-end] .page:not(.first-page) .line {
+    width: 0;
+    margin-right: -0.75rem;
+    opacity: 0;
+  }
+
+  /* The arrow belongs to the button, not to the plain link: it takes no room
+     until the end of the page, then slides in from the left. On hover it
+     leans towards where the link goes. */
+  .arrow {
+    max-width: 0;
+    margin-left: -0.75rem;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(-0.4rem);
+    transition:
+      max-width var(--dur) var(--ease),
+      margin var(--dur) var(--ease),
+      opacity var(--dur) var(--ease),
+      transform var(--dur) var(--ease);
+  }
+
+  .section-nav[data-at-end] .page .arrow {
+    max-width: 1.5rem;
+    margin-left: auto;
+    opacity: 1;
+    transform: none;
+  }
+
+  .section-nav[data-at-end] .page a:hover .arrow,
+  .section-nav[data-at-end] .page a:focus-visible .arrow {
+    transform: translateX(0.3rem);
+  }
+
+  /* A chip has no room for it. */
+  .bar .arrow {
+    display: none;
+  }
+
+  /* In the chip bar they are chips already, so only the colour changes. */
+  .bar .page a {
+    border-color: var(--border);
+    border-radius: 999px;
+  }
+
+  .section-nav.bar[data-at-end] .first-page a,
+  .section-nav.bar[data-at-end] .page:not(.first-page) a {
+    margin-top: 0;
+    padding: 0.35rem 0.8rem;
+    border-color: var(--accent);
   }
 
   /* ── rail ─────────────────────────────────────────────────────────────── */
@@ -160,6 +268,36 @@ const { sections, variant = "column" } = Astro.props;
     // sections.
     const ratios = new Map<string, number>();
 
+    // The last section is short and sits at the very bottom of the page, below
+    // the band the main observer watches, so it could never win "most visible"
+    // and the section before it stayed marked. It is tracked on its own: once
+    // it is properly on screen the reader has reached the end.
+    const last = targets[targets.length - 1]!;
+    let atEnd = false;
+
+    const paint = (best: string, bestRatio: number) => {
+      for (const [id, group] of links) {
+        for (const link of group) {
+          if (id === best && bestRatio > 0) link.setAttribute("aria-current", "true");
+          else link.removeAttribute("aria-current");
+        }
+      }
+    };
+
+    let lastBest = "";
+    let lastBestRatio = 0;
+
+    new IntersectionObserver(
+      ([entry]) => {
+        atEnd = !!entry && entry.isIntersecting;
+        // The page links open out into buttons at the end; see the styles.
+        for (const nav of navs) nav.toggleAttribute("data-at-end", atEnd);
+        if (atEnd) paint(last.id, 1);
+        else paint(lastBest, lastBestRatio);
+      },
+      { threshold: 0.5 },
+    ).observe(last);
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -175,12 +313,10 @@ const { sections, variant = "column" } = Astro.props;
           }
         }
 
-        for (const [id, group] of links) {
-          for (const link of group) {
-            if (id === best && bestRatio > 0) link.setAttribute("aria-current", "true");
-            else link.removeAttribute("aria-current");
-          }
-        }
+        lastBest = best;
+        lastBestRatio = bestRatio;
+        if (atEnd) paint(last.id, 1);
+        else paint(best, bestRatio);
 
         // Keep the active chip in view in the scrolling mobile bar — by
         // moving the bar itself, never with scrollIntoView.

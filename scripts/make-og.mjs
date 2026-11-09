@@ -24,8 +24,8 @@ const NAME = "Mehedi Hasan Maruf";
 // Two short lines rather than one long one: at 1200px wide a single line of
 // this length runs straight off the edge.
 const ROLE_LINES = [
-  "Banking operations · project management",
-  "Research and language data",
+  "Linguist by training, developer by passion",
+  "Language data · open-source tools · BlesseDevil",
 ];
 const DOMAIN = "mehedimaruf.com";
 

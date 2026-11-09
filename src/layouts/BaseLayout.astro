@@ -5,6 +5,8 @@ import ThemeToggle from "../components/ThemeToggle.astro";
 import Portal from "../components/Portal.astro";
 import CommandPalette from "../components/CommandPalette.astro";
 import Socials from "../components/Socials.astro";
+import { profile } from "../lib/site-data";
+import { getProjects } from "../lib/content";
 
 interface Props {
   title?: string;
@@ -31,7 +33,9 @@ const {
   morph = false,
   headMail,
 } = Astro.props;
-const pageTitle = title ? `${title} · ${SITE.name}` : SITE.title;
+// Inner pages carry the short name: it is the one people search for, and the
+// home page title already pairs it with the full one.
+const pageTitle = title ? `${title} · ${SITE.shortName}` : SITE.title;
 const canonical = new URL(Astro.url.pathname, SITE.url).href;
 
 /**
@@ -40,6 +44,86 @@ const canonical = new URL(Astro.url.pathname, SITE.url).href;
  * is there from the first pixel — that is the way back home from a long CV.
  */
 const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
+
+/**
+ * The footer is the site map people can read: every page of the site, every
+ * published tool, and every place he can be found, on every page. It also
+ * means each tool page is one link away from anywhere, which is what a search
+ * engine uses to decide a page matters.
+ */
+const software = (await getProjects()).filter(
+  (project) => project.data.band === "software" && !project.data.draft,
+);
+
+const footerColumns = [
+  {
+    title: "Site",
+    links: [
+      { label: "Home", href: "/" },
+      { label: "Projects", href: "/projects" },
+      { label: "Writing", href: "/blog" },
+      { label: "Résumé", href: "/resume" },
+      { label: "Full CV", href: "/cv" },
+    ],
+  },
+  {
+    title: "Software",
+    links: software.map((project) => ({
+      // "rSimpLone for Windows, Linux and macOS" is a page title; in a short
+      // list the name alone is enough.
+      label: project.data.title.split(" for ")[0]!,
+      href: `/projects/${project.id}`,
+    })),
+  },
+  {
+    title: "Elsewhere",
+    links: [
+      ...profile.links.map((link) => ({ label: link.label, href: link.href, external: true })),
+      { label: "RSS feed", href: "/rss.xml" },
+      { label: "Sitemap", href: "/sitemap-index.xml" },
+    ],
+  },
+].filter((column) => column.links.length > 0);
+
+const ogImage = new URL(SITE.ogImage, SITE.url).href;
+
+/**
+ * Who this site is about, for search engines. The short name and the builder
+ * name are listed as alternates so a search for either one lands here, and
+ * `sameAs` ties the GitHub and LinkedIn profiles to the same person.
+ */
+const personLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": `${SITE.url}/#person`,
+      name: SITE.name,
+      alternateName: [SITE.shortName, PSEUDONYM.name],
+      url: SITE.url,
+      image: ogImage,
+      description: SITE.description,
+      jobTitle: "Software developer and linguist",
+      knowsAbout: [
+        "Open-source software",
+        "Desktop applications",
+        "Web applications",
+        "Linguistics",
+        "Language data",
+        "Bangla natural language processing",
+      ],
+      sameAs: profile.links.map((link) => link.href),
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE.url}/#website`,
+      url: SITE.url,
+      name: SITE.shortName,
+      alternateName: [SITE.name, PSEUDONYM.name],
+      author: { "@id": `${SITE.url}/#person` },
+    },
+  ],
+};
 ---
 
 <!doctype html>
@@ -64,7 +148,16 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={SITE.shortName} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content={`${SITE.shortName} (${PSEUDONYM.name})`} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="author" content={SITE.name} />
+
+    {isHome && <script type="application/ld+json" set:html={JSON.stringify(personLd)} />}
 
     {/* Theme before paint: no flash of the wrong theme. Kept tiny and inline. */}
     <script is:inline>
@@ -130,17 +223,41 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
     </div>
 
     <footer class="site-foot">
-      <p class="who">
-        © {new Date().getFullYear()} {SITE.name} · software signed{" "}
-        <a href={PSEUDONYM.github} target="_blank" rel="noopener">{PSEUDONYM.name}</a>
-      </p>
-      <nav aria-label="Footer">
-        <a href="/resume">Résumé</a>
-        <a href="/projects">Projects</a>
-        <a href="/blog">Writing</a>
-        <a href="/rss.xml">RSS</a>
-        <a href={`mailto:${EMAILS.contact}`}>{EMAILS.contact}</a>
-      </nav>
+      <div class="foot-inner">
+        <div class="foot-brand">
+          <a class="foot-name" href="/">{SITE.shortName}</a>
+          <p>Linguist by training, developer by passion.</p>
+          <p>
+            Software published as{" "}
+            <a href={PSEUDONYM.github} target="_blank" rel="noopener">{PSEUDONYM.name}</a>.
+          </p>
+          <a class="foot-mail" href={`mailto:${EMAILS.contact}`}>{EMAILS.contact}</a>
+        </div>
+
+        <nav class="foot-map" aria-label="Site map">
+          {
+            footerColumns.map((column) => (
+              <div>
+                <h2>{column.title}</h2>
+                <ul>
+                  {column.links.map((link) => (
+                    <li>
+                      <a
+                        href={link.href}
+                        {...("external" in link ? { target: "_blank", rel: "noopener me" } : {})}
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+        </nav>
+      </div>
+
+      <p class="foot-legal">© {new Date().getFullYear()} {SITE.name}</p>
     </footer>
 
     {/* Always available, on every page — the way out to everything else. */}
@@ -415,28 +532,126 @@ const isHome = Astro.url.pathname === "/" || Astro.url.pathname === "";
     }
   }
 
+  /* Who he is on the left, the site map on the right, one quiet legal line
+     underneath. The links are muted until hovered: a footer full of accent
+     colour reads as a second navigation bar competing with the page. */
   .site-foot {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 1.5rem;
     max-width: var(--page-max);
-    margin: 4rem auto 0;
-    padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.85rem;
+    margin: 5rem auto 0;
+    padding: 0 clamp(1rem, 4vw, 2.5rem);
+    font-size: 0.875rem;
     color: var(--muted);
   }
 
-  .site-foot p {
-    margin: 0;
+  .foot-inner {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) auto;
+    gap: 2.5rem clamp(2rem, 6vw, 5rem);
+    /* Extra room underneath keeps the last link above the Explore door. */
+    padding-block: 2.5rem 3.75rem;
+    border-top: 1px solid var(--border);
   }
 
-  .site-foot nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
+  .foot-name {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 0.6rem;
+  }
+
+  .foot-mail {
+    display: block;
+    width: fit-content;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 0.9rem;
+  }
+
+  .foot-mail:hover {
+    text-decoration: underline;
+  }
+
+  .foot-name:hover {
+    color: var(--accent);
+  }
+
+  .foot-brand p {
+    margin: 0;
+    max-width: 44ch;
+    line-height: 1.6;
+  }
+
+  .foot-map {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    gap: 2rem clamp(2rem, 5vw, 4rem);
+  }
+
+  /* The last column keeps the width it had when the contact address lived in
+     it. That holds all three columns a little further left, so the last one
+     stays out from under the Explore door in the corner. */
+  @media (min-width: 34.0625rem) {
+    .foot-map > div:last-child {
+      min-width: 11.5rem;
+    }
+  }
+
+  .foot-map h2 {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0.35rem 0 0.9rem;
+  }
+
+  .foot-map ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .foot-map a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color var(--dur) var(--ease);
+  }
+
+  .foot-map a:hover,
+  .foot-map a:focus-visible {
+    color: var(--text);
+  }
+
+  /* The right side of this line is left empty on purpose: the Explore door is
+     fixed to that corner and used to sit on top of the footer's last link. */
+  .foot-legal {
+    margin: 0;
+    padding: 1.25rem 7rem 2rem 0;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+  }
+
+  @media (max-width: 56rem) {
+    .foot-inner {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .foot-map {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media print {

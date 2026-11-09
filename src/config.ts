@@ -9,10 +9,10 @@ export const SITE = {
   /** The header's version, where the full name would crowd the bar. */
   shortName: "Mehedi Maruf",
   /** Falls back to this when a page sets no title of its own. */
-  title: "Mehedi Hasan Maruf",
+  title: "Mehedi Maruf (Mehedi Hasan Maruf) · Developer and linguist · BlesseDevil",
   description:
-    "Banking operations, project management, and research and language data. " +
-    "I also build small tools for Windows and the web.",
+    "Mehedi Maruf: linguist by training, developer by passion. I work with " +
+    "language data and build open-source desktop and web tools as BlesseDevil.",
   locale: "en",
   ogImage: "/og-image.png",
 } as const;

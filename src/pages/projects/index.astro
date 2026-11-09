@@ -25,15 +25,15 @@ const types = [...new Set(projects.map((p) => p.data.type))].map((type) => ({
 ---
 
 <BaseLayout
-  title="Projects"
-  description="Software and real-world projects by Mehedi Hasan Maruf, built under the name BlesseDevil."
+  title="BlesseDevil projects"
+  description="BlesseDevil is the name Mehedi Maruf publishes software under: open-source desktop and web tools, plus delivery work from events and research."
 >
   <Spotlight />
   <CursorRing />
 
   <div class="page">
     <header class="head">
-      <p class="eyebrow">Projects</p>
+      <p class="eyebrow">Projects · {PSEUDONYM.name}</p>
       <h1>Things I have built and run</h1>
       <p class="lede">
         Software I write under the name <a href={PSEUDONYM.github} target="_blank" rel="noopener"

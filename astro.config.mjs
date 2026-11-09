@@ -38,7 +38,13 @@ export default defineConfig({
   site: SITE_URL,
   base: "/",
   trailingSlash: "ignore",
-  integrations: [mdx(), sitemap(), devOnlyRoutes],
+  integrations: [
+    mdx(),
+    // Tag pages are thin lists that repeat the blog index; leaving them out
+    // keeps the sitemap to pages worth a search result of their own.
+    sitemap({ filter: (page) => !page.includes("/blog/tags/") }),
+    devOnlyRoutes,
+  ],
   image: {
     // Photography lives on Cloudflare R2 (see docs/MEDIA.md). Allow Astro to
     // optimise those images at build time; nothing else is remote.

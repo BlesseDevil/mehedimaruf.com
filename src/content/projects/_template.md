@@ -7,10 +7,10 @@ summary: ""
 # code (Windows apps, web tools, userscripts, Android), "irl" for real-world
 # delivery work (events, research, relief operations).
 band: software
-# What kind of project this is. Pick one: windows-app, web-tool, userscript,
+# What kind of project this is. Pick one: windows-app, desktop-app, web-tool, userscript,
 # android, library, event, research, operations.
 type: web-tool
-# The date used for sorting and for the "Recently" strip. Use "YYYY-MM-DD".
+# The date used for sorting and for the "Recent" strip. Use "YYYY-MM-DD".
 # If only the year is known, use the first of January of that year.
 date: 2025-01-01
 # Optional. The date this entry was last updated, same format as above.

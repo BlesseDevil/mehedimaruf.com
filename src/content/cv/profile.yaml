@@ -11,12 +11,14 @@ name: Mehedi Hasan Maruf
 
 # The small spaced-out line above your name on the home page.
 positioning:
-  - Operations
-  - Research
+  - Developer
+  - Linguist
   - Language data
 
-# One sentence under your name.
-role: Banking operations, project management, and research and language data.
+# Under your name: who you are, then what you do. Also the CV's headline.
+role: >-
+  Linguist by training, developer by passion. I work with language data and
+  build open-source desktop and web tools as BlesseDevil.
 
 # Optional. A motto or quote. Delete the line and the block disappears.
 motto: ""
@@ -26,20 +28,22 @@ location: Bangladesh
 
 # The home page "About" paragraph.
 about: >-
-  I work where language, operations and data meet. I have run a bank's front
-  office, delivered national-scale events, and validated the language data that
-  Bangla language models are trained on. I also build small tools — mostly for
-  Windows and the browser — to take the tedious parts out of my own work.
+  I build open-source software and work with language data. The software is
+  cross-platform desktop apps and web tools, published as BlesseDevil, and most
+  of it started as a way to take the tedious parts out of my own work. On the
+  language side I hold an MA in linguistics and validated 289,000+ items of the
+  data that Bangla language models are trained on. Before that I ran a bank's
+  front desk and coordinated national esports events.
 
 # The four numbers beside the About paragraph. Edit freely; these are yours to
 # frame however you want.
 proofPoints:
   - value: "289k+"
     label: Bangla data items validated
+  - value: "4"
+    label: Software tools shipped
   - value: "BDT 50M+"
     label: Event projects coordinated
-  - value: "30k+"
-    label: Community members managed
   - value: "60+"
     label: Team members led
 

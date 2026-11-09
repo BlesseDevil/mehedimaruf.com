@@ -1,22 +1,18 @@
 # Skills, grouped. Add, remove or reorder freely — each group becomes a block on
 # the CV, and `resume: true` groups also appear on the shorter résumé.
+#
+# Order follows the site's lead: software and language data first, then the
+# operations and banking background.
 
 groups:
-  - name: Banking operations
+  - name: Software
     resume: true
     items:
-      - Cash, clearing and account services
-      - KYC / e-KYC and AML-CFT compliance
-      - Clearing systems — BACH, BEFTN, RTGS
-      - Day-end reconciliation and reporting
-
-  - name: Project and event delivery
-    resume: true
-    items:
-      - Project and event management
-      - Budget planning and execution
-      - Client and stakeholder management
-      - Team leadership
+      - Open-source desktop and web tools, published as BlesseDevil
+      - AI-assisted development with Claude Code, Claude and Gemini
+      - Requirements, testing, review and release owned end to end
+      - Python (moderate), Rust (basic), HTML (working), CSS and JavaScript (basic)
+      - Git and GitHub Actions
 
   - name: Language data and research
     resume: true
@@ -26,10 +22,19 @@ groups:
       - Research documentation and report writing
       - Training, mentoring and onboarding
 
-  - name: Tools
+  - name: Project and event delivery
     resume: true
     items:
+      - Project and event management
+      - Budget planning and execution
+      - Client and stakeholder management
+      - Team leadership and community management
+
+  - name: Banking operations
+    resume: true
+    items:
+      - Cash, clearing and account services
+      - KYC / e-KYC and AML-CFT compliance
+      - Clearing systems — BACH, BEFTN, RTGS
+      - Day-end reconciliation and reporting
       - Advanced Excel and Google Sheets
-      - AI-assisted workflows — Claude, Claude Code, Gemini
-      - HTML (working), CSS and JavaScript (basic)
-      - Community management

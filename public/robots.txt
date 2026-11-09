@@ -1,0 +1,5 @@
+# Everything on this site is public and may be indexed.
+User-agent: *
+Allow: /
+
+Sitemap: https://mehedimaruf.com/sitemap-index.xml

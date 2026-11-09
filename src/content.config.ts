@@ -101,6 +101,7 @@ const projects = defineCollection({
       band: z.enum(["software", "irl"]),
       type: z.enum([
         "windows-app",
+        "desktop-app",
         "web-tool",
         "userscript",
         "android",
@@ -109,7 +110,7 @@ const projects = defineCollection({
         "research",
         "operations",
       ]),
-      /** Sorting key for listings and the "Recently" strip. */
+      /** Sorting key for listings and the "Recent" strip. */
       date: z.coerce.date(),
       updated: z.coerce.date().optional(),
       period: z.string().optional(),

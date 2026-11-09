@@ -14,13 +14,14 @@ import SectionNav from "./SectionNav.astro";
  */
 interface Props {
   sections: { id: string; label: string }[];
+  pages?: { href: string; label: string }[];
 }
 
-const { sections } = Astro.props;
+const { sections, pages = [] } = Astro.props;
 ---
 
 <div class="left-rail">
-  <SectionNav sections={sections} variant="rail" />
+  <SectionNav sections={sections} pages={pages} variant="rail" />
 </div>
 
 <style>

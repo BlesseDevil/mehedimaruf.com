@@ -10,7 +10,7 @@ import Socials from "../components/Socials.astro";
 import TitleMorph from "../components/TitleMorph.astro";
 import ContactForm from "../components/ContactForm.astro";
 import { profile } from "../lib/site-data";
-import { EMAILS } from "../config";
+import { EMAILS, SITE, PSEUDONYM } from "../config";
 
 /** Live entries only — drafts stay out of every listing. */
 const published = <T extends { data: { draft: boolean } }>(entries: T[]) =>
@@ -19,22 +19,65 @@ const published = <T extends { data: { draft: boolean } }>(entries: T[]) =>
 const projects = published(await getCollection("projects"));
 const posts = published(await getCollection("blog"));
 
-const featured = [
-  ...projects.filter((p) => p.data.featured).map((p) => ({
-    kind: p.data.band === "irl" ? "Project" : "Software",
-    title: p.data.title,
-    summary: p.data.summary,
-    href: `/projects/${p.id}`,
-    date: p.data.updated ?? p.data.date,
-  })),
-  ...posts.filter((p) => p.data.featured).map((p) => ({
-    kind: p.data.external ? p.data.external.publication : "Writing",
-    title: p.data.title,
-    summary: p.data.description,
-    href: p.data.external?.url ?? `/blog/${p.id}`,
-    date: p.data.date,
-  })),
-].sort((a, b) => b.date.valueOf() - a.date.valueOf());
+interface Card {
+  kind: string;
+  title: string;
+  summary: string;
+  href: string;
+  date: Date;
+  /** `featured: true` in the entry — it goes first in its tab, marked as pinned. */
+  pinned: boolean;
+}
+
+const projectCard = (p: (typeof projects)[number]): Card => ({
+  kind: p.data.band === "irl" ? "Project" : "Software",
+  title: p.data.title,
+  summary: p.data.summary,
+  href: `/projects/${p.id}`,
+  date: p.data.updated ?? p.data.date,
+  pinned: p.data.featured,
+});
+
+const postCard = (p: (typeof posts)[number]): Card => ({
+  kind: p.data.external ? p.data.external.publication : "Writing",
+  title: p.data.title,
+  summary: p.data.description,
+  href: p.data.external?.url ?? `/blog/${p.id}`,
+  date: p.data.date,
+  pinned: p.data.featured,
+});
+
+/** Pinned entries first, then newest first; three to a tab. */
+const top = (cards: Card[]) =>
+  cards
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.valueOf() - a.date.valueOf())
+    .slice(0, 3);
+
+/**
+ * Featured is one tab per kind of work rather than a single mixed row. Mixed,
+ * the three newest items were always software, and the writing never surfaced
+ * above the fold of its own section. Software leads because it is the lead.
+ */
+const featuredTabs = [
+  {
+    id: "software",
+    label: "Software",
+    cards: top(projects.filter((p) => p.data.band === "software").map(projectCard)),
+    more: { href: "/projects#software", label: "All software" },
+  },
+  {
+    id: "writing",
+    label: "Writing",
+    cards: top(posts.map(postCard)),
+    more: { href: "/blog", label: "All writing" },
+  },
+  {
+    id: "irl",
+    label: "In the world",
+    cards: top(projects.filter((p) => p.data.band === "irl").map(projectCard)),
+    more: { href: "/projects#irl", label: "All delivery work" },
+  },
+].filter((tab) => tab.cards.length > 0);
 
 /**
  * One mixed strip rather than separate "latest posts" and "latest projects"
@@ -62,10 +105,17 @@ const recent = [
 const sections = [
   { id: "top", label: "Intro", show: true },
   { id: "about", label: "About", show: true },
-  { id: "featured", label: "Featured", show: featured.length > 0 },
-  { id: "recently", label: "Recently", show: recent.length > 0 },
+  { id: "featured", label: "Featured", show: featuredTabs.length > 0 },
+  { id: "recent", label: "Recent", show: recent.length > 0 },
   { id: "contact", label: "Contact", show: true },
 ].filter((s) => s.show);
+
+/** The site's other pages, offered in the same navigator as the sections. */
+const pages = [
+  { href: "/projects", label: "Projects" },
+  { href: "/blog", label: "Writing" },
+  { href: "/resume", label: "Résumé" },
+];
 
 const dateLabel = (value: Date) =>
   value.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
@@ -74,7 +124,7 @@ const dateLabel = (value: Date) =>
 <BaseLayout morph>
   <Spotlight />
   <CursorRing />
-  <LeftRail sections={sections} />
+  <LeftRail sections={sections} pages={pages} />
   <TitleMorph />
 
   <section id="top" class="hero">
@@ -113,13 +163,21 @@ const dateLabel = (value: Date) =>
   </section>
 
   <div class="mobile-nav">
-    <SectionNav sections={sections} variant="bar" />
+    <SectionNav sections={sections} pages={pages} variant="bar" />
   </div>
 
   <section id="about" class="band">
     <h2>About</h2>
     <div class="about">
-      <p class="lede">{profile.about}</p>
+      <div>
+        <p class="lede">{profile.about}</p>
+        {/* Both names in plain text: people search for the short one, and for
+            the name the software is published under. */}
+        <p class="aka">
+          Most people call me {SITE.shortName}. My software is published as{" "}
+          <a href="/projects">{PSEUDONYM.name}</a>.
+        </p>
+      </div>
       {
         profile.proofPoints.length > 0 && (
           <ul class="proof">
@@ -136,28 +194,69 @@ const dateLabel = (value: Date) =>
   </section>
 
   {
-    featured.length > 0 && (
-      <section id="featured" class="band">
+    featuredTabs.length > 0 && (
+      <section id="featured" class="band" data-feature-tabs>
         <h2>Featured</h2>
-        <ul class="cards">
-          {featured.slice(0, 3).map((item) => (
-            <li>
-              <a href={item.href}>
-                <span class="kind">{item.kind}</span>
-                <h3>{item.title}</h3>
-                <p>{item.summary}</p>
-              </a>
-            </li>
-          ))}
-        </ul>
+        {featuredTabs.length > 1 && (
+          <div class="tabs" role="tablist" aria-label="Featured work">
+            {featuredTabs.map((tab, index) => (
+              <button
+                type="button"
+                role="tab"
+                id={`feature-tab-${tab.id}`}
+                aria-controls={`feature-panel-${tab.id}`}
+                aria-selected={index === 0 ? "true" : "false"}
+                tabindex={index === 0 ? 0 : -1}
+                data-feature-tab={tab.id}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {featuredTabs.map((tab, index) => (
+          <div
+            class="panel"
+            role="tabpanel"
+            id={`feature-panel-${tab.id}`}
+            aria-labelledby={`feature-tab-${tab.id}`}
+            data-feature-panel={tab.id}
+            hidden={index !== 0}
+          >
+            <ul class="cards">
+              {tab.cards.map((item) => (
+                <li>
+                  <a href={item.href}>
+                    <span class="kind">
+                      {item.kind}
+                      {tab.id === "writing" && item.pinned && <span class="pin">Pinned</span>}
+                    </span>
+                    <h3>{item.title}</h3>
+                    <p>{item.summary}</p>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p class="more">
+              <a href={tab.more.href}>{tab.more.label} →</a>
+            </p>
+          </div>
+        ))}
+        {/* Without scripts the tabs cannot switch, so every panel is shown. */}
+        <noscript>
+          <style is:inline>
+            [data-feature-panel][hidden] { display: block !important; margin-top: 1.5rem; }
+            [data-feature-tabs] .tabs { display: none; }
+          </style>
+        </noscript>
       </section>
     )
   }
 
   {
     recent.length > 0 && (
-      <section id="recently" class="band">
-        <h2>Recently</h2>
+      <section id="recent" class="band">
+        <h2>Recent</h2>
         <ul class="strip">
           {recent.map((item) => (
             <li>
@@ -176,8 +275,8 @@ const dateLabel = (value: Date) =>
   <section id="contact" class="band contact">
     <h2>Contact</h2>
     <p class="lede">
-      Open to work in operations, research and language data — and always glad to talk about
-      Bangla language technology, or about the tools on this site.
+      Open to work in software and language data — and always glad to talk about Bangla
+      language technology, or about the tools on this site.
     </p>
     <ContactForm />
     <ul class="elsewhere">
@@ -193,6 +292,64 @@ const dateLabel = (value: Date) =>
     </ul>
   </section>
 </BaseLayout>
+
+<script>
+  /**
+   * Featured tabs: click or arrow keys switch the panel. The first panel is
+   * already visible in the HTML, so nothing moves when this loads.
+   */
+  function initFeatureTabs() {
+    const root = document.querySelector<HTMLElement>("[data-feature-tabs]");
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = "true";
+
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-feature-tab]")];
+    const panels = [...root.querySelectorAll<HTMLElement>("[data-feature-panel]")];
+
+    const select = (id: string, focus = false) => {
+      for (const tab of tabs) {
+        const on = tab.dataset.featureTab === id;
+        tab.setAttribute("aria-selected", on ? "true" : "false");
+        tab.tabIndex = on ? 0 : -1;
+        if (on && focus) tab.focus();
+      }
+      for (const panel of panels) panel.hidden = panel.dataset.featurePanel !== id;
+      // Remembered for this browser tab, so coming Back from a card returns to
+      // the tab it was opened from rather than to Software.
+      try {
+        sessionStorage.setItem("mm-feature-tab", id);
+      } catch (e) {
+        /* blocked storage: the tab simply starts at the first one */
+      }
+    };
+
+    const restore = () => {
+      try {
+        const saved = sessionStorage.getItem("mm-feature-tab");
+        if (saved && tabs.some((tab) => tab.dataset.featureTab === saved)) select(saved);
+      } catch (e) {
+        /* nothing saved */
+      }
+    };
+    restore();
+    // A page restored from the back/forward cache does not run scripts again.
+    window.addEventListener("pageshow", restore);
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => select(tab.dataset.featureTab!));
+      tab.addEventListener("keydown", (event) => {
+        const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = tabs[(index + step + tabs.length) % tabs.length]!;
+        select(next.dataset.featureTab!, true);
+      });
+    });
+  }
+
+  initFeatureTabs();
+  document.addEventListener("astro:page-load", initFeatureTabs);
+</script>
 
 <style>
   /* Narrower than the CV: this page is mostly prose, and the slimmer column
@@ -412,6 +569,12 @@ const dateLabel = (value: Date) =>
     margin: 0;
   }
 
+  .aka {
+    color: var(--muted);
+    max-width: var(--measure);
+    margin: 1rem 0 0;
+  }
+
   .about {
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
@@ -445,6 +608,61 @@ const dateLabel = (value: Date) =>
   .label {
     font-size: 0.82rem;
     color: var(--muted);
+  }
+
+  /* Same pills as the filters on /projects, so the two read as one control. */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: -0.5rem 0 1.5rem;
+  }
+
+  .tabs button {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+
+  .tabs button:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .tabs button[aria-selected="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  @media (pointer: coarse) {
+    .tabs button {
+      padding: 0.6rem 1rem;
+    }
+  }
+
+  .panel[hidden] {
+    display: none;
+  }
+
+  .more {
+    margin: 1rem 0 0;
+    font-size: 0.9rem;
+  }
+
+  .pin {
+    margin-left: 0.6rem;
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--gold);
+    border-radius: 999px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
   }
 
   .cards,
