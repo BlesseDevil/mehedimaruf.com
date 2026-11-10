@@ -6,6 +6,9 @@
  *   rail   — fixed to the left edge, for the home page on a wide screen
  *   column — inside the CV's sticky left column
  *   bar    — a scrollable row of chips, pinned under the header on a phone
+ *   menu   — one button naming the current section, which opens the full
+ *            list. It replaced the chip bar on phones: with eight entries only
+ *            three chips fitted, and nothing showed that the rest existed.
  *
  * A page may render more than one of these (a rail for desktop, a bar for
  * mobile), and every instance stays in step: the observer updates all of them.
@@ -18,13 +21,32 @@ interface Props {
    * visible way to reach Projects or Writing.
    */
   pages?: { href: string; label: string }[];
-  variant?: "column" | "rail" | "bar";
+  variant?: "column" | "rail" | "bar" | "menu";
 }
 
 const { sections, pages = [], variant = "column" } = Astro.props;
 ---
 
 <nav class:list={["section-nav", variant]} aria-label="Sections" data-section-nav>
+  {
+    variant === "menu" && (
+      <button
+        type="button"
+        class="menu-toggle"
+        aria-expanded="false"
+        aria-haspopup="true"
+        data-menu-toggle
+      >
+        <span class="menu-hint">Section</span>
+        <span class="menu-current" data-menu-current>
+          {sections[0]?.label}
+        </span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+    )
+  }
   <ul>
     {
       sections.map((section) => (
@@ -233,6 +255,119 @@ const { sections, pages = [], variant = "column" } = Astro.props;
     background: var(--accent-soft);
   }
 
+  /* ── menu ─────────────────────────────────────────────────────────────── */
+  /* A single pill under the header. It says where you are; tapping it shows
+     everywhere you can go. */
+  .menu {
+    position: relative;
+    padding: 0.5rem 0;
+  }
+
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease);
+  }
+
+  .menu-hint {
+    color: var(--muted);
+  }
+
+  .menu-current {
+    color: var(--accent);
+  }
+
+  .menu-toggle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    margin-left: auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform var(--dur) var(--ease);
+  }
+
+  .menu[data-open] .menu-toggle {
+    border-color: var(--accent);
+  }
+
+  .menu[data-open] .menu-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .menu ul {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - 0.15rem);
+    z-index: 5;
+    gap: 0;
+    padding: 0.4rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.8rem;
+    background: var(--bg);
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 0.35);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .menu[data-open] ul {
+    display: flex;
+  }
+
+  .menu a {
+    padding: 0.7rem 0.75rem;
+    border-radius: 0.5rem;
+  }
+
+  .menu .line {
+    display: none;
+  }
+
+  .menu a[aria-current="true"] {
+    background: var(--accent-soft);
+  }
+
+  /* In the list the page links are plain rows with their arrow showing; the
+     button treatment belongs to the desktop rail. */
+  .menu .first-page,
+  .section-nav.menu[data-at-end] .first-page {
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .menu .page a,
+  .section-nav.menu[data-at-end] .page a {
+    margin-top: 0;
+    padding: 0.7rem 0.75rem;
+    border-color: transparent;
+    color: var(--text);
+  }
+
+  .menu .arrow,
+  .section-nav.menu[data-at-end] .page .arrow {
+    max-width: 1.5rem;
+    margin-left: auto;
+    opacity: 1;
+    transform: none;
+  }
+
   @media print {
     .section-nav {
       display: none;
@@ -271,7 +406,7 @@ const { sections, pages = [], variant = "column" } = Astro.props;
     // The last section is short and sits at the very bottom of the page, below
     // the band the main observer watches, so it could never win "most visible"
     // and the section before it stayed marked. It is tracked on its own: once
-    // it is properly on screen the reader has reached the end.
+    // it has climbed well into the screen the reader has reached the end.
     const last = targets[targets.length - 1]!;
     let atEnd = false;
 
@@ -281,6 +416,11 @@ const { sections, pages = [], variant = "column" } = Astro.props;
           if (id === best && bestRatio > 0) link.setAttribute("aria-current", "true");
           else link.removeAttribute("aria-current");
         }
+      }
+      // The phone menu's button names the current section.
+      const label = links.get(best)?.[0]?.querySelector(".label")?.textContent;
+      if (label && bestRatio > 0) {
+        for (const el of document.querySelectorAll("[data-menu-current]")) el.textContent = label;
       }
     };
 
@@ -295,7 +435,10 @@ const { sections, pages = [], variant = "column" } = Astro.props;
         if (atEnd) paint(last.id, 1);
         else paint(lastBest, lastBestRatio);
       },
-      { threshold: 0.5 },
+      // The bottom edge of the viewport is pulled up by 35%, so this fires once
+      // the top of Contact has climbed past that line, i.e. Contact has entered
+      // further than the bottom 35% of the screen.
+      { rootMargin: "0px 0px -35% 0px", threshold: 0 },
     ).observe(last);
 
     const observer = new IntersectionObserver(
@@ -344,6 +487,38 @@ const { sections, pages = [], variant = "column" } = Astro.props;
 
     for (const target of targets) observer.observe(target);
   }
+
+  /** The phone menu: open on tap, close on choosing, tapping away or Escape. */
+  function initSectionMenus() {
+    for (const nav of document.querySelectorAll<HTMLElement>(".section-nav.menu")) {
+      if (nav.dataset.menuBound) continue;
+      nav.dataset.menuBound = "true";
+      const toggle = nav.querySelector<HTMLButtonElement>("[data-menu-toggle]");
+      if (!toggle) continue;
+
+      const set = (open: boolean) => {
+        nav.toggleAttribute("data-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+
+      toggle.addEventListener("click", () => set(!nav.hasAttribute("data-open")));
+      nav.addEventListener("click", (event) => {
+        if ((event.target as HTMLElement).closest("a")) set(false);
+      });
+      document.addEventListener("click", (event) => {
+        if (!nav.contains(event.target as Node)) set(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && nav.hasAttribute("data-open")) {
+          set(false);
+          toggle.focus();
+        }
+      });
+    }
+  }
+
+  initSectionMenus();
+  document.addEventListener("astro:page-load", initSectionMenus);
 
   initSectionNav();
   document.addEventListener("astro:page-load", initSectionNav);

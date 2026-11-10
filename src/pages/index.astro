@@ -10,6 +10,7 @@ import Socials from "../components/Socials.astro";
 import TitleMorph from "../components/TitleMorph.astro";
 import ContactForm from "../components/ContactForm.astro";
 import { profile } from "../lib/site-data";
+import { byRecency } from "../lib/cv";
 import { EMAILS, SITE, PSEUDONYM } from "../config";
 
 /** Live entries only — drafts stay out of every listing. */
@@ -102,9 +103,50 @@ const recent = [
   .sort((a, b) => b.date.valueOf() - a.date.valueOf())
   .slice(0, 4);
 
+/**
+ * The résumé card's facts come from the same collections and the same sort as
+ * the CV pages, so the card cannot drift from what /cv says. A row whose data
+ * is missing is simply left out.
+ */
+const [latestJob, ...earlierJobs] = byRecency(await getCollection("experience"));
+const [latestDegree] = byRecency(await getCollection("education"));
+const [latestResearch] = byRecency(await getCollection("research"));
+
+interface Fact {
+  label: string;
+  value: string;
+  clamp?: boolean;
+  tags?: { text: string; title: string }[];
+}
+
+const factRows: (Fact | false | undefined)[] = [
+  latestJob && { label: "Now", value: `${latestJob.data.role} · ${latestJob.data.org}` },
+  // The rest of the career in one line of tags: where, with the role on hover.
+  // The detail is what the two buttons below are for.
+  earlierJobs.length > 0 && {
+    label: "Previously",
+    value: "",
+    tags: earlierJobs.map((job) => ({
+      text: job.data.org,
+      title: `${job.data.role}, ${job.data.start}–${job.data.end}`,
+    })),
+  },
+  latestDegree && {
+    label: "Education",
+    value: `${latestDegree.data.degree} · ${latestDegree.data.institution}`,
+  },
+  latestResearch && { label: "Research", value: latestResearch.data.title, clamp: true },
+  profile.languages.length > 0 && {
+    label: "Languages",
+    value: profile.languages.map((l) => `${l.name} (${l.level.toLowerCase()})`).join(" · "),
+  },
+];
+const resumeFacts = factRows.filter((fact): fact is Fact => Boolean(fact));
+
 const sections = [
   { id: "top", label: "Intro", show: true },
   { id: "about", label: "About", show: true },
+  { id: "resume", label: "Résumé", show: true },
   { id: "featured", label: "Featured", show: featuredTabs.length > 0 },
   { id: "recent", label: "Recent", show: recent.length > 0 },
   { id: "contact", label: "Contact", show: true },
@@ -114,7 +156,6 @@ const sections = [
 const pages = [
   { href: "/projects", label: "Projects" },
   { href: "/blog", label: "Writing" },
-  { href: "/resume", label: "Résumé" },
 ];
 
 const dateLabel = (value: Date) =>
@@ -163,7 +204,7 @@ const dateLabel = (value: Date) =>
   </section>
 
   <div class="mobile-nav">
-    <SectionNav sections={sections} pages={pages} variant="bar" />
+    <SectionNav sections={sections} pages={pages} variant="menu" />
   </div>
 
   <section id="about" class="band">
@@ -190,6 +231,38 @@ const dateLabel = (value: Date) =>
           </ul>
         )
       }
+    </div>
+  </section>
+
+  <section id="resume" class="band">
+    <h2>Résumé</h2>
+    <div class="resume-card">
+      {
+        resumeFacts.length > 0 && (
+          <dl class="facts">
+            {resumeFacts.map((fact) => (
+              <div class="fact">
+                <dt>{fact.label}</dt>
+                <dd class:list={[fact.clamp && "clamp"]}>
+                  {fact.tags ? (
+                    <ul class="tags">
+                      {fact.tags.map((tag) => (
+                        <li title={tag.title}>{tag.text}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    fact.value
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )
+      }
+      <div class="cta">
+        <a class="button primary" href="/resume">View résumé</a>
+        <a class="button" href="/cv">Full CV</a>
+      </div>
     </div>
   </section>
 
@@ -699,6 +772,87 @@ const dateLabel = (value: Date) =>
   .strip a:hover {
     border-color: var(--accent);
     transform: translateY(-3px);
+  }
+
+  /* Same surface, border and radius as the cards below, but not a link: the
+     two buttons are the actions, so there is no hover lift on the card. */
+  .resume-card {
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+    background: var(--surface);
+  }
+
+  .facts {
+    display: grid;
+    gap: 0.9rem;
+    margin: 0;
+  }
+
+  .fact {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: 1rem;
+    align-items: baseline;
+  }
+
+  .fact dt {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .fact dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* A long paper title is trimmed by the box, not by cutting the text. */
+  .fact dd.clamp {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .tags li {
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .resume-card .cta {
+    margin-top: 1.25rem;
+    gap: 0.5rem;
+  }
+
+  /* Smaller than the hero's pair: inside a card they are a footnote to the
+     facts, not the main call to action. */
+  .resume-card .button {
+    padding: 0.45rem 0.95rem;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 30rem) {
+    .fact {
+      grid-template-columns: 1fr;
+      gap: 0.15rem;
+    }
   }
 
   .kind {

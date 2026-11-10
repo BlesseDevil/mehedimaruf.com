@@ -20,16 +20,67 @@ interface Props {
 const { sections, pages = [] } = Astro.props;
 ---
 
-<div class="left-rail">
+<div class="left-rail" data-left-rail>
   <SectionNav sections={sections} pages={pages} variant="rail" />
 </div>
+
+<script>
+  /**
+   * The rail is fixed, so on a window that shows it but is not very tall or
+   * wide, the bottom of the page slides the footer up underneath it. This lifts
+   * the rail by exactly the overlap, keeping its bottom edge a little above the
+   * footer's top border.
+   */
+  function initLeftRail() {
+    const rail = document.querySelector<HTMLElement>("[data-left-rail]");
+    const footer = document.querySelector<HTMLElement>(".site-foot");
+    if (!rail || !footer || rail.dataset.bound) return;
+    rail.dataset.bound = "true";
+
+    const clearance = 24; // 1.5rem at the default size
+    let lift = 0;
+    let queued = false;
+
+    const measure = () => {
+      queued = false;
+      // Hidden below the rail's breakpoint: nothing to keep clear.
+      if (rail.getClientRects().length === 0) return;
+      // The rail's box already includes the current lift, so add it back to
+      // find where the rail would sit with no lift at all.
+      const naturalBottom = rail.getBoundingClientRect().bottom + lift;
+      const limit = footer.getBoundingClientRect().top - clearance;
+      const next = Math.max(0, Math.round(naturalBottom - limit));
+      if (next === lift) return;
+      lift = next;
+      rail.style.setProperty("--rail-lift", `${lift}px`);
+    };
+
+    const queue = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(measure);
+    };
+
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue, { passive: true });
+    // The page links grow into buttons at the end, which changes the rail's height.
+    if ("ResizeObserver" in window) new ResizeObserver(queue).observe(rail);
+    measure();
+  }
+
+  initLeftRail();
+  document.addEventListener("astro:page-load", initLeftRail);
+</script>
 
 <style>
   .left-rail {
     position: fixed;
     left: clamp(1rem, 3vw, 2.5rem);
     top: 50%;
-    transform: translateY(-50%);
+    /* --rail-lift is set by the script below once the footer comes up under the
+       rail. It is deliberately not transitioned: it has to track the scroll
+       exactly, or the rail would lag behind the footer and overlap it. */
+    transform: translateY(calc(-50% - var(--rail-lift, 0px)));
     z-index: 5;
     display: grid;
     justify-items: start;
