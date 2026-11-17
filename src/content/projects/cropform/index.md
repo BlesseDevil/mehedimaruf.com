@@ -1,17 +1,17 @@
 ---
-title: SliceDevil
+title: CropForm
 summary: A free image cropper that runs entirely in the browser. Crop to a circle, ellipse, rounded rectangle or any other shape, and export PNG, WebP, JPEG, ICO or SVG. Works offline.
 band: software
 type: web-tool
 date: 2026-11-09
-repo: https://github.com/BlesseDevil/cropper
+repo: https://github.com/BlesseDevil/cropform
 demoUrl: https://crop.mehedimaruf.com
 stack: ["JavaScript", "PWA"]
 featured: true
 draft: false
 ---
 
-Cropping a photo into a circle for a profile picture, or into a rounded square for an app icon, usually means uploading it to a website you have never heard of. SliceDevil does the same job without the upload: the image never leaves your device.
+Cropping a photo into a circle for a profile picture, or into a rounded square for an app icon, usually means uploading it to a website you have never heard of. CropForm does the same job without the upload: the image never leaves your device.
 
 ## What it does
 
